@@ -148,6 +148,7 @@ def _write_dashboard() -> None:
     # Copy the template from analyzer/dashboard.html into results/ so the server can serve it.
     # The HTML itself polls report.json every 10s — no regeneration needed for new data.
     shutil.copy(DASHBOARD_TMPL, RESULTS_DIR / "dashboard.html")
+    shutil.copy(DASHBOARD_TMPL, RESULTS_DIR / "index.html")
 
 
 if __name__ == "__main__":

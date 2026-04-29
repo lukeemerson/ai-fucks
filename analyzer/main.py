@@ -4,8 +4,12 @@ import shutil
 import sys
 from pathlib import Path
 
-from features import extract_features
-from m4_findings import FINDINGS, tier_badge
+try:
+    from .features import extract_features
+    from .m4_findings import FINDINGS, tier_badge
+except ImportError:
+    from features import extract_features
+    from m4_findings import FINDINGS, tier_badge
 
 RESULTS_DIR    = Path(__file__).parent.parent / "results"
 IMAGES_DIR     = Path(__file__).parent.parent / "db-test_images" / "images"

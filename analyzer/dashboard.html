@@ -70,6 +70,16 @@ let barChart, freqChart, metricsChart;
 
 function render(DATA) {
   document.getElementById("recordCount").textContent = `${DATA.length} images loaded`;
+  if (!DATA.length) {
+    if (barChart) barChart.destroy();
+    if (freqChart) freqChart.destroy();
+    if (metricsChart) metricsChart.destroy();
+    barChart = freqChart = metricsChart = null;
+    document.getElementById("matrix").innerHTML = "";
+    document.getElementById("error").textContent =
+      "report.json is empty — analyzer ran, but no images produced usable results.";
+    return;
+  }
 
   const images   = DATA.map(d => d.image.replace(".png",""));
   const findings = FINDING_ORDER;
@@ -167,7 +177,9 @@ async function load() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     render(data);
-    document.getElementById("error").textContent = "";
+    if (data.length) {
+      document.getElementById("error").textContent = "";
+    }
   } catch (e) {
     document.getElementById("error").textContent =
       "Could not load report.json — run the analyzer first, then serve this folder with: python3 server.py";

@@ -1,0 +1,10 @@
+# Images
+db-test_images/
+
+# Python
+analyzer/.venv/
+__pycache__/
+*.pyc
+
+# VS Code
+.vscode/

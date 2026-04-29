@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>CXR M4 Analyzer — Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0f1117; color: #e2e8f0; font-family: "SF Pro Display", system-ui, sans-serif; padding: 2rem; }
+    h1 { font-size: 1.4rem; font-weight: 600; color: #f8fafc; margin-bottom: 0.25rem; }
+    .subtitle { font-size: 0.8rem; color: #64748b; margin-bottom: 2rem; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    .card { background: #1e2130; border: 1px solid #2d3148; border-radius: 12px; padding: 1.25rem; }
+    .card h2 { font-size: 0.85rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem; }
+    .card.full { grid-column: 1 / -1; }
+    .tier-legend { display: flex; gap: 1.25rem; margin-bottom: 2rem; flex-wrap: wrap; align-items: center; }
+    .tier-pill { font-size: 0.72rem; padding: 3px 10px; border-radius: 99px; font-weight: 600; }
+    .t1 { background: #7f1d1d; color: #fca5a5; }
+    .t2 { background: #78350f; color: #fcd34d; }
+    .t3 { background: #0c4a6e; color: #7dd3fc; }
+    .record-count { font-size: 0.75rem; color: #64748b; margin-left: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+    th { color: #64748b; text-align: left; padding: 0.4rem 0.5rem; border-bottom: 1px solid #2d3148; white-space: nowrap; }
+    td { padding: 0.35rem 0.5rem; border-bottom: 1px solid #1a1f2e; }
+    td.img-name { color: #94a3b8; font-family: monospace; font-size: 0.7rem; }
+    .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+    .dot.on  { background: #22c55e; }
+    .dot.off { background: #334155; }
+    #error { color: #f87171; font-size: 0.85rem; padding: 1rem 0; }
+  </style>
+</head>
+<body>
+  <h1>NIH ChestX-ray14 — M4 Competency Analyzer</h1>
+  <p class="subtitle">Classical pixel-matrix analysis · No ML model weights</p>
+  <div class="tier-legend">
+    <span class="tier-pill t1">Tier 1 ▲ MUST RECOGNIZE</span>
+    <span class="tier-pill t2">Tier 2 ● Should Recognize</span>
+    <span class="tier-pill t3">Tier 3 ○ Should Know</span>
+    <span class="record-count" id="recordCount"></span>
+  </div>
+  <div id="error"></div>
+  <div class="grid">
+    <div class="card full">
+      <h2>Findings per Image — Comparison</h2>
+      <canvas id="barChart" height="90"></canvas>
+    </div>
+    <div class="card">
+      <h2>Finding Frequency Across All Images</h2>
+      <canvas id="freqChart" height="200"></canvas>
+    </div>
+    <div class="card">
+      <h2>Key Metrics per Image</h2>
+      <canvas id="metricsChart" height="200"></canvas>
+    </div>
+    <div class="card full">
+      <h2>Detection Matrix</h2>
+      <table id="matrix"></table>
+    </div>
+  </div>
+
+<script>
+const TIER_COLOR = { 1: "#ef4444", 2: "#f59e0b", 3: "#38bdf8" };
+const FINDING_ORDER = [
+  "pneumothorax","pulmonary_edema",
+  "cardiomegaly","pleural_effusion","consolidation","atelectasis",
+  "emphysema","focal_opacity"
+];
+
+let barChart, freqChart, metricsChart;
+
+function render(DATA) {
+  document.getElementById("recordCount").textContent = `${DATA.length} images loaded`;
+
+  const images   = DATA.map(d => d.image.replace(".png",""));
+  const findings = FINDING_ORDER;
+  const meta     = DATA[0].findings;
+
+  // destroy old charts before redrawing so they don't stack on re-poll
+  if (barChart)     barChart.destroy();
+  if (freqChart)    freqChart.destroy();
+  if (metricsChart) metricsChart.destroy();
+
+  barChart = new Chart(document.getElementById("barChart"), {
+    type: "bar",
+    data: {
+      labels: images,
+      datasets: findings.map(key => ({
+        label: meta[key].name,
+        data: DATA.map(d => d.findings[key].detected ? 1 : 0),
+        backgroundColor: TIER_COLOR[meta[key].tier] + "cc",
+        borderColor:     TIER_COLOR[meta[key].tier],
+        borderWidth: 1, borderRadius: 3,
+      })),
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { labels: { color: "#94a3b8", font: { size: 11 } } },
+        tooltip: { callbacks: { label: ctx => ctx.dataset.label + ": " + (ctx.raw ? "✓" : "–") } },
+      },
+      scales: {
+        x: { ticks: { color: "#64748b", font: { size: 10 } }, grid: { color: "#1e2130" } },
+        y: { max: 1.2, ticks: { color: "#64748b", stepSize: 1, callback: v => v ? "✓" : "–" }, grid: { color: "#2d3148" } },
+      },
+    },
+  });
+
+  freqChart = new Chart(document.getElementById("freqChart"), {
+    type: "bar",
+    data: {
+      labels: findings.map(k => meta[k].name),
+      datasets: [{
+        data: findings.map(k => DATA.filter(d => d.findings[k].detected).length),
+        backgroundColor: findings.map(k => TIER_COLOR[meta[k].tier] + "bb"),
+        borderColor:     findings.map(k => TIER_COLOR[meta[k].tier]),
+        borderWidth: 1, borderRadius: 4,
+      }],
+    },
+    options: {
+      indexAxis: "y",
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { max: DATA.length, ticks: { color: "#64748b", stepSize: 1 }, grid: { color: "#2d3148" } },
+        y: { ticks: { color: "#94a3b8", font: { size: 10 } }, grid: { color: "#1e2130" } },
+      },
+    },
+  });
+
+  metricsChart = new Chart(document.getElementById("metricsChart"), {
+    type: "line",
+    data: {
+      labels: images,
+      datasets: [
+        { label: "CTR",           data: DATA.map(d => d.metrics.ctr),            borderColor: "#ef4444", tension: 0.3, fill: false, pointRadius: 4 },
+        { label: "Basal Opacity", data: DATA.map(d => d.metrics.basal_opacity),  borderColor: "#f59e0b", tension: 0.3, fill: false, pointRadius: 4 },
+        { label: "Bilateral Haze",data: DATA.map(d => d.metrics.bilateral_haze), borderColor: "#38bdf8", tension: 0.3, fill: false, pointRadius: 4 },
+      ],
+    },
+    options: {
+      plugins: { legend: { labels: { color: "#94a3b8", font: { size: 11 } } } },
+      scales: {
+        x: { ticks: { color: "#64748b", font: { size: 10 } }, grid: { color: "#1e2130" } },
+        y: { min: 0, max: 1.1, ticks: { color: "#64748b" }, grid: { color: "#2d3148" } },
+      },
+    },
+  });
+
+  const table = document.getElementById("matrix");
+  table.innerHTML = "";
+  const head = document.createElement("tr");
+  head.innerHTML = `<th>Image</th>` + findings.map(k =>
+    `<th style="color:${TIER_COLOR[meta[k].tier]}">${meta[k].name}</th>`
+  ).join("");
+  table.appendChild(head);
+  DATA.forEach(row => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td class="img-name">${row.image}</td>` +
+      findings.map(k => `<td style="text-align:center"><span class="dot ${row.findings[k].detected ? "on" : "off"}"></span></td>`).join("");
+    table.appendChild(tr);
+  });
+}
+
+// fetch report.json from the server and re-render; called on load and every 10s
+async function load() {
+  try {
+    const res = await fetch("report.json?t=" + Date.now());
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    render(data);
+    document.getElementById("error").textContent = "";
+  } catch (e) {
+    document.getElementById("error").textContent =
+      "Could not load report.json — run the analyzer first, then serve this folder with: python3 server.py";
+  }
+}
+
+load();
+setInterval(load, 10000);
+</script>
+</body>
+</html>

@@ -40,10 +40,11 @@ py-modules = ["server"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
-addopts = "--import-mode=importlib -m 'not smoke and not slow'"
+addopts = "--import-mode=importlib -m 'not smoke and not slow and not torch'"
 markers = [
     "smoke: tests against real on-disk data, slow",
     "slow: long-running tests (>5s); excluded from default run, opt in with -m slow",
+    "torch: tests requiring torch/torchvision; excluded from default run, opt in with -m torch",
 ]
 
 [tool.ruff]

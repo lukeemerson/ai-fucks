@@ -913,3 +913,76 @@ argument represents user-supplied configuration) -- **not**
 `ContractViolation`. `ContractViolation` is reserved for runtime port-contract
 violations during operation (shape mismatch, value out of range, etc.), not
 for invalid init arguments. Contract tests assert this distinction.
+
+### 13.5 Torch backbone adapter (v1)
+
+The `harness/adapters/torch/` package ships two `BackbonePort` implementations
+in v1. They are framework-gated behind the `[experiment]` extras group and
+excluded from the default test suite via the `torch` pytest marker.
+
+**Classes shipped.**
+
+| Class | Underlying network | Embedding dim |
+| ----- | ------------------ | ------------- |
+| `TorchVisionResNet50Backbone` | `torchvision.models.resnet50` (`IMAGENET1K_V2` default, falls back to `V1`) | `(N, 2048)` |
+| `TorchVisionDenseNet121Backbone` | `torchvision.models.densenet121` (`IMAGENET1K_V1`) | `(N, 1024)` |
+
+**Preprocessing pipeline.** Input is `NDArray[np.float32]` with shape
+`(N, H, W, C)` and values in `[0, 1]`. The pipeline:
+
+1. Validates ndim == 4 and `C in {1, 3}`; other channel counts raise
+   `AdapterError`.
+2. Permutes NHWC -> NCHW.
+3. If `C == 1`, replicates along the channel axis to produce 3 channels
+   (chest X-rays are grayscale; the ImageNet-trained backbone wants RGB).
+4. Bilinear-resizes to `224 x 224` (`align_corners=False`).
+5. Normalizes with the standard ImageNet mean / std
+   (`mean=[0.485, 0.456, 0.406]`, `std=[0.229, 0.224, 0.225]`).
+
+A unit test (`test_one_channel_input_matches_three_channel_replication`)
+asserts that `extract(gray)` matches `extract(np.repeat(gray, 3, axis=-1))`
+within `rtol=1e-5, atol=1e-6`, guarding against silent drift in the
+replication path.
+
+**Device fallback.** Auto-selection (`device=None`) picks
+`mps` -> `cuda` -> `cpu`. MPS is claimed only when both
+`torch.backends.mps.is_available()` *and* `torch.backends.mps.is_built()`
+return `True`. A caller-supplied override (`device="cuda" | "mps" | "cpu"`)
+is validated against the runtime; an override that is not present raises
+`AdapterError` rather than silently falling back. Unknown override strings
+also raise.
+
+**Eval-only.** `model.eval()` is called once at construction; the
+classification head (`model.fc` for ResNet, `model.classifier` for DenseNet)
+is replaced with `nn.Identity` so `forward` returns penultimate features
+directly. `extract` runs inside `torch.no_grad()`. There is no training
+surface exposed.
+
+**Output.** `NDArray[np.float32]` of shape `(N, embedding_dim)`. Features
+are detached, moved to the host, and dtype-cast at the boundary.
+
+**Determinism.** `torch.manual_seed(seed)` is called *inside* the
+constructor, never globally. Two adapters built with the same seed and the
+same `weights` value produce byte-identical features for the same input.
+**v1 deviation:** `torch.manual_seed` mutates global torch RNG state. This
+is acceptable for v1 because (1) the seed is consumed only at construction
+time for random-weight init paths used by tests; (2) inference runs under
+`torch.no_grad()` and does not consume RNG. v1.1 may migrate to a
+`torch.Generator`-scoped pattern.
+
+When the chosen device is `cuda`, the constructor also sets
+`torch.backends.cudnn.deterministic = True` and
+`torch.backends.cudnn.benchmark = False`. MPS does not currently provide an
+equivalent determinism flag; runs on MPS are not byte-reproducible across
+devices.
+
+The `weights` parameter uses a private `_DefaultWeights` sentinel class
+(not a bare `object()`) to distinguish "caller did not pass `weights=`"
+from "caller passed `weights=None` for random init." This keeps the
+constructor signature mypy-narrow.
+
+**Deferred (v1.1+).**
+
+* `RadImageNetResNet50Backbone` (a CXR-pretrained ResNet50 variant) — separate PR.
+* Composition factory wiring (Step 3 of `PAPER_CHECKLIST.md`); the torch adapters are not yet returned by `build_v1_runner_*`.
+* Real-weight smoke tests (the unit suite uses `weights=None`).

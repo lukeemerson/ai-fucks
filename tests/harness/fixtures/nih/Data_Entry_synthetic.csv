@@ -1,0 +1,17 @@
+Image Index,Finding Labels,Follow-up #,Patient ID,Patient Age,Patient Gender,View Position,OriginalImage[Width,Height],OriginalImagePixelSpacing[x,y]
+00000001_000.png,Cardiomegaly,0,1,57,M,PA,2682,2749,0.143,0.143
+00000001_001.png,Effusion,1,1,58,M,AP,2894,2729,0.143,0.143
+00000001_002.png,Pneumothorax,2,1,59,M,PA,2500,2048,0.143,0.143
+00000002_000.png,Cardiomegaly|Edema,0,2,64,F,AP,2992,2991,0.143,0.143
+00000002_001.png,No Finding,1,2,65,F,PA,2500,2048,0.143,0.143
+00000003_000.png,Mass|Nodule|Pneumonia,0,3,42,M,PA,2700,2700,0.143,0.143
+00000003_001.png,Atelectasis|Emphysema,1,3,43,M,AP,2800,2800,0.143,0.143
+00000003_002.png,Infiltration,2,3,43,M,PA,2600,2600,0.143,0.143
+00000003_003.png,Consolidation|Fibrosis,3,3,44,M,AP,2900,2900,0.143,0.143
+00000004_010.png,No Finding,10,4,71,F,PA,2500,2500,0.143,0.143
+00000004_011.png,No Finding,11,4,72,F,AP,2550,2550,0.143,0.143
+00000004_012.png,No Finding,12,4,72,F,PA,2600,2600,0.143,0.143
+00000004_013.png,Hernia,13,4,73,F,AP,2700,2700,0.143,0.143
+00000004_014.png,Pleural_Thickening,14,4,74,F,PA,2750,2750,0.143,0.143
+00000005_000.png,No Finding,0,5,30,M,AP,2500,2048,0.143,0.143
+00000005_001.png,No Finding,1,5,31,M,PA,2520,2070,0.143,0.143

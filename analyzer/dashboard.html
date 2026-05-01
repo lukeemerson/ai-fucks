@@ -699,7 +699,52 @@
       padding: 18px 20px 20px 38px;
       display: grid;
       gap: 18px;
-      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+      grid-template-columns: minmax(0, 220px) minmax(0, 1.4fr) minmax(0, 1fr);
+    }
+
+    .case-image {
+      display: block;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      object-fit: contain;
+      background: #0d0d0d;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      cursor: zoom-in;
+    }
+
+    .case-image-missing {
+      display: grid;
+      place-items: center;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      background: var(--panel);
+      border: 1px dashed var(--border-strong);
+      border-radius: 12px;
+      color: var(--muted);
+      font-size: 12px;
+      text-align: center;
+      padding: 12px;
+    }
+
+    .image-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 8, 6, 0.85);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      cursor: zoom-out;
+      padding: 32px;
+    }
+    .image-overlay.open { display: flex; }
+    .image-overlay img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      border-radius: 8px;
     }
 
     .detail-section h4 {
@@ -886,6 +931,10 @@
     @media (max-width: 1100px) {
       .hero-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .filters { grid-template-columns: 1fr 1fr; }
+      .detail-inner { grid-template-columns: minmax(0, 200px) 1fr; }
+    }
+
+    @media (max-width: 720px) {
       .detail-inner { grid-template-columns: 1fr; }
     }
 
@@ -1062,6 +1111,10 @@
     <footer style="text-align:center; padding: 18px 0 0; color: var(--muted-soft); font-size: 11.5px;">
       Heuristic prototype &middot; not a diagnostic tool &middot; pixel-stat features only
     </footer>
+  </div>
+
+  <div class="image-overlay" id="imageOverlay" role="dialog" aria-label="Image viewer" aria-modal="true">
+    <img id="imageOverlayImg" alt="" />
   </div>
 
   <script>
@@ -1456,7 +1509,16 @@
         return '<div class="metric"><span class="k">' + escapeHtml(k) + '</span><span class="v">' + formatted + '</span></div>';
       }).join("") + '</div>';
 
+      var imgSrc = "images/" + encodeURIComponent(row.image);
+      var imageHtml = '<div class="detail-section">'
+        + '<h4>Image</h4>'
+        + '<img class="case-image" src="' + escapeHtml(imgSrc) + '" alt="' + escapeHtml(row.image) + '" '
+        + 'data-full="' + escapeHtml(imgSrc) + '" '
+        + 'onerror="this.outerHTML=&quot;<div class=\\&quot;case-image-missing\\&quot;>Image not available.<br><span style=\\&quot;font-size:11px\\&quot;>Run <code>python3 server.py</code> from repo root so <code>db-test_images/images/</code> is served.</span></div>&quot;">'
+        + '</div>';
+
       return '<div class="detail-inner">'
+        + imageHtml
         + '<div class="detail-section">'
         + '<h4>Detected findings &amp; M4 action plan</h4>'
         + detectedHtml
@@ -1541,9 +1603,32 @@
 
       // Row clicks for expansion (event delegation)
       els.casesBody.addEventListener("click", function (e) {
+        if (e.target.closest(".case-image")) return;
         var tr = e.target.closest("tr.summary");
         if (!tr) return;
         toggleRow(tr.getAttribute("data-image"));
+      });
+
+      // Image lightbox
+      var overlay = $("imageOverlay");
+      var overlayImg = $("imageOverlayImg");
+      els.casesBody.addEventListener("click", function (e) {
+        var img = e.target.closest(".case-image");
+        if (!img) return;
+        e.stopPropagation();
+        overlayImg.src = img.getAttribute("data-full") || img.src;
+        overlayImg.alt = img.alt;
+        overlay.classList.add("open");
+      });
+      overlay.addEventListener("click", function () {
+        overlay.classList.remove("open");
+        overlayImg.src = "";
+      });
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && overlay.classList.contains("open")) {
+          overlay.classList.remove("open");
+          overlayImg.src = "";
+        }
       });
 
       els.casesBody.addEventListener("keydown", function (e) {

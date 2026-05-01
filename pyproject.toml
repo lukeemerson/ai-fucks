@@ -40,7 +40,11 @@ py-modules = ["server"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
-addopts = "--import-mode=importlib"
+addopts = "--import-mode=importlib -m 'not smoke and not slow'"
+markers = [
+    "smoke: tests against real on-disk data, slow",
+    "slow: long-running tests (>5s); excluded from default run, opt in with -m slow",
+]
 
 [tool.ruff]
 target-version = "py312"

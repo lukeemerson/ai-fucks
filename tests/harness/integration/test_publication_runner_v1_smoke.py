@@ -100,3 +100,52 @@ def test_publication_runner_v1_runs_end_to_end_on_fixture(
     assert len(result.thresholds.thresholds) == n_labels
     for t in result.thresholds.thresholds:
         assert cfg_threshold.clamp_lo <= t <= cfg_threshold.clamp_hi
+
+
+@pytest.mark.smoke
+@pytest.mark.torch
+def test_publication_runner_v1_strict_missing_images_false_drops_rows(
+    tmp_path: Path,
+) -> None:
+    """``strict_missing_images=False`` drops rows whose PNGs are absent on disk.
+
+    Builds a tmp CSV that copies the 16-row fixture and appends 4 rows pointing
+    to PNGs that do not exist in the fixture's ``images/`` dir. With the
+    permissive flag, the factory must construct the ``NIHDataset`` without
+    raising and the resulting dataset must expose only the 16 real rows.
+    """
+    if not _FIXTURE_CSV.is_file() or not _FIXTURE_IMAGES.is_dir():
+        pytest.skip(
+            f"NIH fixture not found at {_FIXTURE_ROOT}; "
+            f"expected {_FIXTURE_CSV} and {_FIXTURE_IMAGES}"
+        )
+
+    fixture_lines = _FIXTURE_CSV.read_text(encoding="utf-8").splitlines()
+    # Synthesise 4 extra rows that mimic the CSV schema but reference PNGs
+    # that don't exist on disk. Patient IDs intentionally distinct from the
+    # fixture's 1..5 so we don't accidentally collide with real rows on
+    # patient-grouped operations.
+    fake_rows = [
+        "99990001_000.png,Cardiomegaly,0,9999,40,M,PA,2500,2500,0.143,0.143",
+        "99990001_001.png,Effusion,1,9999,41,M,AP,2500,2500,0.143,0.143",
+        "99990002_000.png,No Finding,0,9998,55,F,PA,2500,2500,0.143,0.143",
+        "99990002_001.png,Infiltration,1,9998,56,F,AP,2500,2500,0.143,0.143",
+    ]
+    augmented_csv = tmp_path / "Data_Entry_with_missing.csv"
+    augmented_csv.write_text(
+        "\n".join([*fixture_lines, *fake_rows]) + "\n", encoding="utf-8"
+    )
+
+    artifact_root = tmp_path / "artifacts"
+    artifact_root.mkdir()
+
+    bundle = build_publication_runner_v1(
+        seed=0,
+        nih_csv_path=augmented_csv,
+        nih_images_dir=_FIXTURE_IMAGES,
+        artifact_root=artifact_root,
+        strict_missing_images=False,
+    )
+
+    # The 4 fake rows were dropped; only the 16 fixture rows survive.
+    assert len(bundle.dataset.load().samples) == 16

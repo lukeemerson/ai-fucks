@@ -98,6 +98,16 @@ def _build_arg_parser() -> argparse.ArgumentParser:
             "``runs/<UTC-timestamp>/`` under the current working directory."
         ),
     )
+    parser.add_argument(
+        "--strict-missing-images",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "If set, the NIH dataset adapter raises DataError when CSV rows "
+            "reference missing PNGs. Use --no-strict-missing-images for "
+            "partial dataset dumps (e.g. the public 5k sample). Default: on."
+        ),
+    )
     return parser
 
 
@@ -163,6 +173,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         nih_images_dir=args.nih_images,
         artifact_root=artifact_root,
         n_samples=n_samples,
+        strict_missing_images=args.strict_missing_images,
     )
     if n_samples is not None:
         actual = len(bundle.dataset.load().samples)

@@ -208,6 +208,7 @@ def build_publication_runner_v1(
     nih_images_dir: Path,
     artifact_root: Path,
     n_samples: int | None = None,
+    strict_missing_images: bool = True,
 ) -> RunnerBundle:
     """The v1 publication recipe -- see ``PAPER_CHECKLIST.md`` Step 3.
 
@@ -269,6 +270,13 @@ def build_publication_runner_v1(
             Values >= ``len(dataset)`` silently fall through to the full
             dataset; values <= 0 are rejected by the caller (the pilot
             CLI), not the factory.
+        strict_missing_images: If True (default), :class:`NIHDataset` raises
+            :class:`~harness.domain.errors.DataError` when any CSV row
+            references a PNG that does not exist on disk. If False, rows
+            with missing images are silently dropped (logged at INFO level
+            by the underlying adapter). Set False when running on a partial
+            NIH dump (e.g. the public 5k sample). The default is True so
+            production runs surface dataset integrity issues.
 
     Returns:
         A :class:`RunnerBundle` ready to be unpacked into
@@ -290,7 +298,7 @@ def build_publication_runner_v1(
         image_size=_PUBLICATION_IMAGE_SIZE,
         cache_size=0,  # the decoding wrapper keeps its own cache per-run
         disk_cache_dir=None,
-        strict_missing_images=True,
+        strict_missing_images=strict_missing_images,
     )
     inner_dataset = NIHDataset(nih_config)
     if n_samples is not None and n_samples > 0:

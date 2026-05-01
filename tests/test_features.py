@@ -13,8 +13,10 @@ from analyzer.features import (
     _basal_opacification,
     _bilateral_haziness,
     _cardiothoracic_ratio,
+    _diaphragm_flatness,
     _diaphragm_position,
     _focal_variance,
+    _lower_zone_horiz_band,
     _peripheral_lucency,
 )
 
@@ -71,6 +73,24 @@ def test_peripheral_lucency_flags_dark_uniform_periphery() -> None:
     assert out["right_mean"] == pytest.approx(0.40, abs=1e-4)
 
 
+def test_peripheral_lucency_edge_density_low_for_uniform() -> None:
+    """A flat uniform strip has no edges — edge_density must be near zero."""
+    out = _peripheral_lucency(_blank(0.40))
+    assert out["left_edge_density"] < 0.01
+    assert out["right_edge_density"] < 0.01
+
+
+def test_peripheral_lucency_edge_density_higher_for_textured() -> None:
+    """Alternating columns in the left strip (simulated vascular markings) raise edge_density."""
+    strip = int(IMG_SIZE * 0.15)
+    arr = _blank(0.40)
+    arr[:, 0:strip:2] = 0.10
+    arr[:, 1:strip:2] = 0.80
+    out = _peripheral_lucency(arr)
+    assert out["left_edge_density"] > 0.05
+    assert out["right_edge_density"] < 0.01  # right strip unchanged
+
+
 def test_basal_opacification_picks_lower_band() -> None:
     arr = _blank(0.20)
     arr[int(IMG_SIZE * 0.70) :, :] = 0.80
@@ -116,3 +136,36 @@ def test_diaphragm_position_increases_when_dome_is_lower() -> None:
     upper[int(IMG_SIZE * 0.62) : int(IMG_SIZE * 0.63), :] = 0.95
     lower[int(IMG_SIZE * 0.78) : int(IMG_SIZE * 0.79), :] = 0.95
     assert _diaphragm_position(lower) > _diaphragm_position(upper)
+
+
+def test_diaphragm_flatness_low_for_flat_diaphragm() -> None:
+    """Same bright row across all columns → all 5 sample positions agree → std ≈ 0."""
+    arr = _blank(0.20)
+    arr[int(IMG_SIZE * 0.72) : int(IMG_SIZE * 0.73), :] = 0.95
+    assert _diaphragm_flatness(arr) < 0.02
+
+
+def test_diaphragm_flatness_higher_for_domed_diaphragm() -> None:
+    """Bright row higher at centre than at edges mimics a domed diaphragm — std rises."""
+    arr = _blank(0.20)
+    # Centre column strip: dome at 62% (higher up)
+    arr[int(IMG_SIZE * 0.62) : int(IMG_SIZE * 0.63), int(IMG_SIZE * 0.40) : int(IMG_SIZE * 0.60)] = 0.95
+    # Edge column strips: dome at 76% (lower)
+    arr[int(IMG_SIZE * 0.76) : int(IMG_SIZE * 0.77), : int(IMG_SIZE * 0.25)] = 0.95
+    arr[int(IMG_SIZE * 0.76) : int(IMG_SIZE * 0.77), int(IMG_SIZE * 0.75) :] = 0.95
+    assert _diaphragm_flatness(arr) > 0.04
+
+
+def test_lower_zone_horiz_band_zero_for_uniform() -> None:
+    assert _lower_zone_horiz_band(_blank(0.40)) < 0.01
+
+
+def test_lower_zone_horiz_band_responds_to_lower_band_not_upper() -> None:
+    """A horizontal band in the upper zone should not raise lower_horiz_band."""
+    upper_only = _blank(0.20)
+    upper_only[int(IMG_SIZE * 0.25) : int(IMG_SIZE * 0.26), :] = 0.95  # upper
+    lower_only = _blank(0.20)
+    lower_only[int(IMG_SIZE * 0.65) : int(IMG_SIZE * 0.66), :] = 0.95  # lower
+    assert _lower_zone_horiz_band(lower_only) > _lower_zone_horiz_band(upper_only)
+
+

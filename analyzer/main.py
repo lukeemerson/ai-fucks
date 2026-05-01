@@ -97,10 +97,11 @@ def main() -> None:
             continue
 
         predictions = _load_predictions(feats, profile)
-        found = [key for key, pred in predictions.items() if pred["detected"]]
-        print(format_report(img_path.name, feats, predictions))
+        record = build_report_record(img_path.name, feats, predictions)
+        found = [e["finding"] for e in record["ddx"]]
+        print(format_report(record))
         results.append((img_path.name, found))
-        json_records.append(build_report_record(img_path.name, feats, predictions))
+        json_records.append(record)
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
 

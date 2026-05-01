@@ -17,8 +17,9 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import StandardScaler
+from sklearn.calibration import CalibratedClassifierCV
+from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.inspection import permutation_importance
 
 from analyzer.evaluate import Confusion, is_positive, load_labels
 from analyzer.features import METRIC_KEYS, METRIC_SCHEMA_VERSION
@@ -30,9 +31,15 @@ TRAIN_FRAC = 0.70
 VAL_FRAC = 0.15
 TEST_FRAC = 0.15
 
-FEATURE_SUBSETS: dict[str, tuple[str, ...]] = {
-    key: METRIC_KEYS for key in FINDINGS
+# Findings where the val-F1 optimizer tends to push thresholds too high (0.80+)
+# by sacrificing all recall to avoid FPs on a rare, clinically vague finding.
+# These ceilings accept more FPs in exchange for not missing every positive.
+THRESHOLD_CEILINGS: dict[str, float] = {
+    "consolidation": 0.58,
+    "atelectasis": 0.50,
 }
+
+FEATURE_SUBSETS: dict[str, tuple[str, ...]] = dict.fromkeys(FINDINGS, METRIC_KEYS)
 
 
 @dataclass(frozen=True)
@@ -78,10 +85,7 @@ def _probability_threshold(probabilities: Sequence[float], labels: Sequence[bool
     best_f1 = -1.0
     best_threshold = 0.5
     for i, value in enumerate(candidates):
-        if i + 1 < len(candidates):
-            threshold = (value + candidates[i + 1]) / 2
-        else:
-            threshold = value
+        threshold = (value + candidates[i + 1]) / 2 if i + 1 < len(candidates) else value
         preds = [p >= threshold for p in probabilities]
         cm = confusion_from_predictions(preds, labels)
         if cm.f1 > best_f1:
@@ -120,7 +124,7 @@ def _fit_one_finding(
     finding_key: str,
     split_records: SplitRecords,
     labels: dict[str, set[str]],
-) -> tuple[dict[str, Any], dict[str, list[float]]]:
+) -> tuple[dict[str, Any], Any, dict[str, list[float]]]:
     feature_names = list(FEATURE_SUBSETS[finding_key])
     X_train = _metrics_matrix(split_records.train, feature_names)
     y_train = _label_vector(split_records.train, labels, finding_key)
@@ -136,18 +140,25 @@ def _fit_one_finding(
     if len(np.unique(y_test)) < 2:
         raise ValueError(f"{finding_key}: test split has only one class")
 
-    scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_val_scaled = scaler.transform(X_val)
-    X_test_scaled = scaler.transform(X_test)
+    base = HistGradientBoostingClassifier(
+        max_iter=300,
+        max_depth=4,
+        learning_rate=0.05,
+        class_weight="balanced",
+        random_state=0,
+    )
+    model = CalibratedClassifierCV(base, method="isotonic", cv=3)
+    model.fit(X_train, y_train.astype(int))
 
-    model = LogisticRegression(max_iter=2000, class_weight="balanced", random_state=0)
-    model.fit(X_train_scaled, y_train.astype(int))
-
-    train_probs = model.predict_proba(X_train_scaled)[:, 1]
-    val_probs = model.predict_proba(X_val_scaled)[:, 1]
-    test_probs = model.predict_proba(X_test_scaled)[:, 1]
+    train_probs = model.predict_proba(X_train)[:, 1]
+    val_probs = model.predict_proba(X_val)[:, 1]
+    test_probs = model.predict_proba(X_test)[:, 1]
     threshold = _probability_threshold(val_probs.tolist(), y_val.tolist())
+    ceiling = THRESHOLD_CEILINGS.get(finding_key)
+    threshold_source = "validation_f1"
+    if ceiling is not None and threshold > ceiling:
+        threshold = ceiling
+        threshold_source = "ceiling"
 
     def summarize(probs: np.ndarray, y_true: np.ndarray) -> dict[str, float]:
         preds = probs >= threshold
@@ -166,14 +177,13 @@ def _fit_one_finding(
             "fired_rate": float(preds.mean()) if n else 0.0,
         }
 
+    perm = permutation_importance(model, X_val, y_val.astype(int), n_repeats=5, random_state=0)
     model_payload = {
         "feature_names": feature_names,
-        "scaler_mean": [float(x) for x in scaler.mean_],
-        "scaler_scale": [float(x) if float(x) else 1.0 for x in scaler.scale_],
-        "coefficients": [float(x) for x in model.coef_[0]],
-        "intercept": float(model.intercept_[0]),
+        "feature_importances": [float(x) for x in perm.importances_mean],
+        "model_class": "CalibratedClassifierCV(HistGradientBoostingClassifier)",
         "threshold": float(threshold),
-        "threshold_source": "validation_f1",
+        "threshold_source": threshold_source,
         "train_metrics": summarize(train_probs, y_train),
         "validation_metrics": summarize(val_probs, y_val),
         "test_metrics": summarize(test_probs, y_test),
@@ -183,7 +193,7 @@ def _fit_one_finding(
         "val": [float(x) for x in val_probs],
         "test": [float(x) for x in test_probs],
     }
-    return model_payload, split_probabilities
+    return model_payload, model, split_probabilities
 
 
 def _assemble_profile(
@@ -191,12 +201,14 @@ def _assemble_profile(
     labels: dict[str, set[str]],
     report_path: Path,
     labels_path: Path,
-) -> tuple[dict[str, Any], dict[str, dict[str, list[float]]]]:
+) -> tuple[dict[str, Any], dict[str, dict[str, list[float]]], dict[str, Any]]:
     findings: dict[str, Any] = {}
     split_probabilities: dict[str, dict[str, list[float]]] = {}
+    models_dict: dict[str, Any] = {}
     for finding_key in FINDINGS:
-        payload, probs = _fit_one_finding(finding_key, split_records, labels)
+        payload, fitted_model, probs = _fit_one_finding(finding_key, split_records, labels)
         findings[finding_key] = payload
+        models_dict[finding_key] = fitted_model
         split_probabilities[finding_key] = probs
 
     profile = {
@@ -222,7 +234,7 @@ def _assemble_profile(
         },
         "findings": findings,
     }
-    return profile, split_probabilities
+    return profile, split_probabilities, models_dict
 
 
 def _predict_records(
@@ -247,8 +259,10 @@ def train_profile(
         raise SystemExit("No report records overlap with the labels CSV — check filenames")
 
     split_records = deterministic_split(records)
-    profile, _ = _assemble_profile(split_records, labels, report_path, labels_path)
-    save_profile(profile, out_profile)
+    profile, _, models_dict = _assemble_profile(split_records, labels, report_path, labels_path)
+    # Inject models for _predict_records, then save both JSON + joblib
+    profile["_models"] = models_dict
+    save_profile(profile, out_profile, models=models_dict)
 
     base = out_profile.with_suffix("")
     for split_name, split_data in (

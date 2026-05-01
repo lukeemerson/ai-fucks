@@ -757,6 +757,44 @@
       color: var(--ink);
     }
 
+    .finding-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .conf-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 99px;
+      letter-spacing: .04em;
+    }
+    .conf-high   { background: #d1fae5; color: #065f46; }
+    .conf-medium { background: #fef3c7; color: #92400e; }
+    .conf-low    { background: var(--panel-2); color: var(--muted); border: 1px solid var(--border); }
+
+    .ddx-list {
+      grid-column: 1 / -1;
+      margin: 0;
+      padding: 0 0 0 1.1em;
+      font-size: 12px;
+      color: var(--ink-soft);
+      line-height: 1.6;
+    }
+    .ddx-list li { margin-bottom: 1px; }
+
+    .ddx-label {
+      grid-column: 1 / -1;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--muted);
+      margin-bottom: -6px;
+    }
+
     .metrics-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1041,11 +1079,21 @@
       "focal_opacity"
     ];
 
+    var FINDING_META = {
+      pneumothorax:     { name: "Possible Pneumothorax",                tier: 1, tier_label: "MUST recognize" },
+      pulmonary_edema:  { name: "Pulmonary Edema",                      tier: 1, tier_label: "MUST recognize" },
+      cardiomegaly:     { name: "Cardiomegaly",                         tier: 2, tier_label: "Should recognize" },
+      pleural_effusion: { name: "Pleural Effusion",                     tier: 2, tier_label: "Should recognize" },
+      consolidation:    { name: "Possible Consolidation / Pneumonia",   tier: 2, tier_label: "Should recognize" },
+      atelectasis:      { name: "Atelectasis",                          tier: 2, tier_label: "Should recognize" },
+      emphysema:        { name: "Emphysema / Hyperinflation",           tier: 3, tier_label: "Should know about" },
+      focal_opacity:    { name: "Focal Opacity / Nodule",               tier: 3, tier_label: "Should know about" }
+    };
+
     var TIER_CLASS = {1: "t1", 2: "t2", 3: "t3"};
 
     var state = {
       data: [],
-      schema: null,        // template (first row's findings) for labels/descriptions
       sort: {key: "count", dir: "desc"},
       page: 0,
       pageSize: 50,
@@ -1100,9 +1148,13 @@
     }
 
     function findingMeta(key) {
-      // Pull labels from schema (first record), with sensible fallbacks
-      if (state.schema && state.schema[key]) return state.schema[key];
-      return { name: key, tier: 3, tier_label: "", description: "", m4_action: "" };
+      return FINDING_META[key] || { name: key, tier: 3, tier_label: "" };
+    }
+
+    function rowDdxMap(row) {
+      var map = {};
+      (row.ddx || []).forEach(function (e) { map[e.finding] = e; });
+      return map;
     }
 
     function pct(v, total) {
@@ -1115,16 +1167,11 @@
     }
 
     function summarizeRow(row) {
-      var detected = [];
-      var highestTier = null;
-      for (var i = 0; i < FINDING_KEYS.length; i++) {
-        var k = FINDING_KEYS[i];
-        var f = row.findings[k];
-        if (f && f.detected) {
-          detected.push(k);
-          if (highestTier === null || f.tier < highestTier) highestTier = f.tier;
-        }
-      }
+      var ddx = row.ddx || [];
+      var detected = ddx.map(function (e) { return e.finding; });
+      var highestTier = ddx.length
+        ? ddx.reduce(function (best, e) { return e.tier < best ? e.tier : best; }, 99)
+        : null;
       return {
         image: row.image,
         raw: row,
@@ -1144,18 +1191,14 @@
       FINDING_KEYS.forEach(function (k) { findingCounts[k] = 0; });
 
       state.data.forEach(function (row) {
-        var any = false;
+        var ddx = row.ddx || [];
+        if (ddx.length) withFindings += 1;
         var seenTiers = {};
-        FINDING_KEYS.forEach(function (k) {
-          var f = row.findings[k];
-          if (f && f.detected) {
-            any = true;
-            findingCounts[k] += 1;
-            tierFindingCounts[f.tier] = (tierFindingCounts[f.tier] || 0) + 1;
-            seenTiers[f.tier] = true;
-          }
+        ddx.forEach(function (e) {
+          findingCounts[e.finding] = (findingCounts[e.finding] || 0) + 1;
+          tierFindingCounts[e.tier] = (tierFindingCounts[e.tier] || 0) + 1;
+          seenTiers[e.tier] = true;
         });
-        if (any) withFindings += 1;
         Object.keys(seenTiers).forEach(function (t) { tierCases[t] = (tierCases[t] || 0) + 1; });
       });
 
@@ -1262,10 +1305,7 @@
         if (state.onlyFindings && r.count === 0) return false;
         if (tierSel !== "all") {
           var t = parseInt(tierSel, 10);
-          var hasT = false;
-          for (var i = 0; i < r.findings.length; i++) {
-            if (r.raw.findings[r.findings[i]].tier === t) { hasT = true; break; }
-          }
+          var hasT = (r.raw.ddx || []).some(function (e) { return e.tier === t; });
           if (!hasT) return false;
         }
         if (pickFindings) {
@@ -1355,13 +1395,9 @@
         if (r.count === 0) {
           findingsHtml = '<span class="badge-clean">No detections</span>';
         } else {
-          // Sort by tier ascending so critical first
-          var sortedKeys = r.findings.slice().sort(function (a, b) {
-            return r.raw.findings[a].tier - r.raw.findings[b].tier;
-          });
-          findingsHtml = '<div class="findings-cell">' + sortedKeys.map(function (k) {
-            var meta = r.raw.findings[k];
-            return '<span class="badge t' + Number(meta.tier) + '" title="' + escapeHtml(meta.tier_label || "") + '">' + escapeHtml(meta.name) + '</span>';
+          var sortedDdx = (r.raw.ddx || []).slice().sort(function (a, b) { return a.tier - b.tier; });
+          findingsHtml = '<div class="findings-cell">' + sortedDdx.map(function (e) {
+            return '<span class="badge t' + Number(e.tier) + '" title="' + escapeHtml(e.tier_label || "") + '">' + escapeHtml(e.name) + '</span>';
           }).join("") + '</div>';
         }
         var tierCell = r.highestTier === null
@@ -1382,26 +1418,33 @@
     }
 
     function renderDetail(row) {
-      var detected = [];
-      var notDetected = [];
-      FINDING_KEYS.forEach(function (k) {
-        var f = row.findings[k];
-        if (!f) return;
-        if (f.detected) detected.push(k); else notDetected.push(k);
-      });
-      // Sort detected by tier ascending
-      detected.sort(function (a, b) { return row.findings[a].tier - row.findings[b].tier; });
+      var ddx = (row.ddx || []).slice().sort(function (a, b) { return a.tier - b.tier; });
 
-      var detectedHtml = detected.length
-        ? detected.map(function (k) {
-            var f = row.findings[k];
-            return '<div class="finding-card t' + Number(f.tier) + '">'
-              + '<span class="badge t' + Number(f.tier) + '">Tier ' + Number(f.tier) + '</span>'
-              + '<div>'
-              + '<p class="name">' + escapeHtml(f.name) + '</p>'
-              + '<p class="desc">' + escapeHtml(f.description) + '</p>'
+      var detectedHtml = ddx.length
+        ? ddx.map(function (e) {
+            var confHtml = e.confidence
+              ? ' <span class="conf-badge conf-' + e.confidence + '">' + e.confidence.toUpperCase() + '</span>'
+              : '';
+            var probHtml = e.probability != null
+              ? ' <span style="font-size:11px;color:var(--muted)">(' + Math.round(e.probability * 100) + '%)</span>'
+              : '';
+            var considHtml = (e.considerations && e.considerations.length)
+              ? '<p class="ddx-label">DDx to consider</p>'
+                + '<ol class="ddx-list">'
+                + e.considerations.map(function (c) { return '<li>' + escapeHtml(c) + '</li>'; }).join('')
+                + '</ol>'
+              : '';
+            return '<div class="finding-card t' + Number(e.tier) + '">'
+              + '<div class="finding-header">'
+              + '<span class="badge t' + Number(e.tier) + '">Tier ' + Number(e.tier) + '</span>'
+              + confHtml
               + '</div>'
-              + '<div class="action">' + escapeHtml(f.m4_action) + '</div>'
+              + '<div>'
+              + '<p class="name">' + escapeHtml(e.name) + probHtml + '</p>'
+              + '<p class="desc">' + escapeHtml(e.description) + '</p>'
+              + '</div>'
+              + considHtml
+              + '<div class="action">' + escapeHtml(e.m4_action) + '</div>'
               + '</div>';
           }).join("")
         : '<div class="finding-card"><span class="badge-clean">No detections</span><p class="desc" style="margin:0">No heuristics fired for this image.</p></div>';
@@ -1592,7 +1635,6 @@
         var data = await res.json();
         if (!Array.isArray(data)) throw new Error("Expected an array in report.json");
         state.data = data;
-        if (data.length) state.schema = data[0].findings || null;
         clearError();
 
         // Build dependent UI on first load

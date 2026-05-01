@@ -10,7 +10,7 @@ from analyzer.features import METRIC_KEYS
 from analyzer.m4_findings import FINDINGS
 from analyzer.predict import build_report_record
 from analyzer.profile import load_profile
-from analyzer.train import SplitRecords, _probability_threshold, deterministic_split, train_profile
+from analyzer.train import _probability_threshold, deterministic_split, train_profile
 
 
 def _blank_predictions() -> dict[str, dict[str, bool | None]]:
@@ -123,14 +123,21 @@ def test_train_profile_writes_profile_and_probability_reports(tmp_path: Path) ->
     profile = train_profile(report_path, labels_path, out_profile)
 
     assert out_profile.exists()
+    assert out_profile.with_suffix(".joblib").exists()
     loaded = load_profile(out_profile)
     assert loaded["metric_schema_version"]
     assert loaded["findings"]["cardiomegaly"]["threshold_source"] == "validation_f1"
+    assert "feature_importances" in loaded["findings"]["cardiomegaly"]
 
     base = out_profile.with_suffix("")
     test_report = base.with_name(f"{base.name}.test_report.json")
     assert test_report.exists()
     records = json.loads(test_report.read_text())
     assert records
-    assert "probability" in records[0]["findings"]["cardiomegaly"]
+    records_with_ddx = [r for r in records if r["ddx"]]
+    assert records_with_ddx, "Expected at least one record with detected findings in test report"
+    entry = records_with_ddx[0]["ddx"][0]
+    assert "probability" in entry
+    assert "considerations" in entry
+    assert "confidence" in entry
     assert set(profile["findings"]) == set(FINDINGS)

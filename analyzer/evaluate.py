@@ -8,7 +8,7 @@ The labels CSV is the file shipped with the NIH ChestX-ray14 release. Each row
 has an `Image Index` (filename) and `Finding Labels` (pipe-separated NIH
 labels). Only images present in BOTH the report.json and the labels file are
 scored. The report may come from the legacy threshold fallback or from a saved
-calibration profile; evaluation only depends on `findings.<key>.detected`.
+calibration profile; evaluation reads detection status from the `ddx` array.
 
 Threshold suggestions use Youden's J (TPR - FPR) on the primary metric for
 each single-metric finding. Compound findings (pneumothorax, consolidation)
@@ -109,8 +109,9 @@ def confusion_matrix(records: Iterable[dict[str, Any]], labels: dict[str, set[st
         nih = labels.get(r["image"])
         if nih is None:
             continue
+        detected_keys = {e["finding"] for e in r.get("ddx", [])}
         for key in FINDINGS:
-            pred = r["findings"][key]["detected"]
+            pred = key in detected_keys
             actual = is_positive(nih, key)
             cm = out[key]
             if pred and actual:

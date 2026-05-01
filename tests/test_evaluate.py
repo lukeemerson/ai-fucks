@@ -22,24 +22,14 @@ from analyzer.evaluate import (
 from analyzer.main import THRESHOLDS
 
 
-# Reusable building block: every report record needs a `findings.<key>.detected`
-# entry for every key in THRESHOLDS.
 def _record(image: str, detected: dict[str, bool], metrics: dict[str, float]) -> dict[str, Any]:
-    return {
-        "image": image,
-        "findings": {
-            key: {
-                "detected": detected.get(key, False),
-                "tier": 1,
-                "tier_label": "",
-                "name": key,
-                "description": "",
-                "m4_action": "",
-            }
-            for key in THRESHOLDS
-        },
-        "metrics": metrics,
-    }
+    ddx = [
+        {"finding": key, "name": key, "tier": 1, "tier_label": "", "probability": None,
+         "confidence": None, "description": "", "m4_action": "", "considerations": []}
+        for key in THRESHOLDS
+        if detected.get(key, False)
+    ]
+    return {"image": image, "ddx": ddx, "metrics": metrics}
 
 
 _METRIC_KEYS = (
@@ -48,11 +38,15 @@ _METRIC_KEYS = (
     "ptx_right_mean",
     "ptx_left_std",
     "ptx_right_std",
+    "ptx_left_edge_density",
+    "ptx_right_edge_density",
     "basal_opacity",
     "bilateral_haze",
     "diaphragm_pos",
+    "diaphragm_flatness",
     "focal_variance",
     "horiz_band",
+    "lower_horiz_band",
 )
 
 
@@ -206,22 +200,7 @@ def test_youden_handles_ties_across_classes() -> None:
 
 def test_youden_returns_none_when_one_class_empty() -> None:
     records = [
-        _record(
-            "a.png",
-            {},
-            {
-                "ctr": 0.5,
-                "ptx_left_mean": 0.0,
-                "ptx_right_mean": 0.0,
-                "ptx_left_std": 0.0,
-                "ptx_right_std": 0.0,
-                "basal_opacity": 0.0,
-                "bilateral_haze": 0.0,
-                "diaphragm_pos": 0.0,
-                "focal_variance": 0.0,
-                "horiz_band": 0.0,
-            },
-        )
+        _record("a.png", {}, dict.fromkeys(_METRIC_KEYS, 0.0) | {"ctr": 0.5})
     ]
     labels = {"a.png": {"No Finding"}}
     assert youden_threshold(records, labels, "cardiomegaly", "ctr") is None

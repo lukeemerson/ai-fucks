@@ -29,7 +29,7 @@ def test_seed_fixture_exists_and_is_nonempty() -> None:
 
 def test_seed_findings_match_current_thresholds() -> None:
     for record in _records():
-        expected = {k for k, v in record["findings"].items() if v["detected"]}
+        expected = {e["finding"] for e in record["ddx"]}
         actual = set(detect_findings(record["metrics"]))
         assert actual == expected, (
             f"{record['image']}: thresholds drifted from fixture. "
@@ -47,12 +47,23 @@ def test_consolidation_and_focal_opacity_are_now_separated() -> None:
     fired_both = [
         r["image"]
         for r in _records()
-        if r["findings"]["consolidation"]["detected"] and r["findings"]["focal_opacity"]["detected"]
+        if any(e["finding"] == "consolidation" for e in r["ddx"])
+        and any(e["finding"] == "focal_opacity" for e in r["ddx"])
     ]
     assert not fired_both, (
         "Consolidation and focal_opacity should be mutually exclusive under "
         "the current threshold split."
     )
+
+
+def test_ddx_entries_have_required_fields() -> None:
+    """Every ddx entry must carry the fields the dashboard and CLI depend on."""
+    required = {"finding", "name", "tier", "tier_label", "probability", "confidence",
+                "description", "m4_action", "considerations"}
+    for record in _records():
+        for entry in record["ddx"]:
+            missing = required - entry.keys()
+            assert not missing, f"{record['image']} ddx entry missing: {missing}"
 
 
 def test_thresholds_keys_match_findings_module() -> None:

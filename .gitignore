@@ -3,8 +3,8 @@ db-test_images/
 Data_Entry_2017_v2020.csv
 
 # Python
-analyzer/.venv/
 .venv/
+analyzer/.venv/
 __pycache__/
 *.pyc
 *.pyo

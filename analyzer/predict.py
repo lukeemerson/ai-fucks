@@ -24,6 +24,74 @@ DEFAULT_THRESHOLD_RULES: ThresholdRules = {
     "focal_opacity": lambda f: f["focal_variance"] >= 0.0200,
 }
 
+# Static DDx considerations per finding. Consolidation is handled dynamically
+# using cross-finding probabilities — see _consolidation_considerations().
+CONSIDERATIONS: dict[str, list[str]] = {
+    "cardiomegaly": [
+        "Dilated cardiomyopathy / decompensated CHF",
+        "Valvular disease (MR, AR, MS)",
+        "Pericardial effusion",
+        "AP projection artifact — confirm on PA film",
+    ],
+    "pneumothorax": [
+        "Tension PTX — emergency if tracheal deviation / haemodynamic instability",
+        "Simple PTX — size guides management",
+        "Apical bleb / bulla",
+        "Skin fold artifact — clinical correlation required",
+    ],
+    "pleural_effusion": [
+        "Parapneumonic / empyema",
+        "Transudate: CHF, cirrhosis, nephrotic syndrome (Light's criteria)",
+        "Malignant effusion",
+        "Haemothorax",
+    ],
+    "pulmonary_edema": [
+        "Cardiogenic: decompensated CHF — check BNP, Echo",
+        "Non-cardiogenic / ARDS — sepsis, aspiration, transfusion reaction",
+        "Fluid overload",
+    ],
+    "atelectasis": [
+        "Mucus plugging — incentive spirometry, chest PT",
+        "Extrinsic compression / adjacent effusion",
+        "Postoperative / splinting",
+        "Endobronchial lesion if lobar — consider bronchoscopy",
+    ],
+    "emphysema": [
+        "COPD / smoking-related",
+        "Alpha-1 antitrypsin deficiency (consider in younger patients)",
+        "Asthma — hyperinflation during acute exacerbation",
+    ],
+    "focal_opacity": [
+        "Primary lung malignancy — CT chest, PET if > 8 mm (Fleischner guidelines)",
+        "Metastasis",
+        "Infectious granuloma (TB, histoplasma, coccidioides)",
+        "Hamartoma / benign lesion",
+        "Focal pneumonia / aspiration",
+    ],
+}
+
+
+def _consolidation_considerations(all_probs: dict[str, float | None]) -> list[str]:
+    """Rank consolidation DDx using cross-finding probabilities."""
+    consids = ["Lobar pneumonia / CAP — culture, start empiric antibiotics"]
+    if (all_probs.get("pulmonary_edema") or 0.0) >= 0.40:
+        consids.append("Pulmonary edema pattern (bilateral haze elevated — see above)")
+    if (all_probs.get("pleural_effusion") or 0.0) >= 0.40:
+        consids.append("Parapneumonic effusion (see pleural effusion above)")
+    if (all_probs.get("atelectasis") or 0.0) >= 0.40:
+        consids.append("Atelectasis / volume loss (see above)")
+    consids.append("Cannot exclude aspiration pneumonitis")
+    consids.append("Post-obstructive if lobar without fever — consider bronchoscopy")
+    return consids
+
+
+def _confidence_label(probability: float) -> str:
+    if probability >= 0.70:
+        return "high"
+    if probability >= 0.55:
+        return "medium"
+    return "low"
+
 
 def detect_findings(feats: dict[str, float], rules: ThresholdRules | None = None) -> list[str]:
     active_rules = DEFAULT_THRESHOLD_RULES if rules is None else rules
@@ -46,46 +114,56 @@ def build_report_record(
     feats: dict[str, float],
     predictions: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
-    return {
-        "image": image_name,
-        "findings": {
-            key: {
-                "detected": bool(predictions[key]["detected"]),
-                "tier": FINDINGS[key].tier,
-                "tier_label": FINDINGS[key].tier_label,
-                "name": FINDINGS[key].name,
-                "description": FINDINGS[key].description,
-                "m4_action": FINDINGS[key].m4_action,
-                "probability": predictions[key]["probability"],
-            }
-            for key in FINDINGS
-        },
-        "metrics": {k: round(v, 4) for k, v in feats.items()},
-    }
+    all_probs: dict[str, float | None] = {k: v.get("probability") for k, v in predictions.items()}
+    ddx: list[dict[str, Any]] = []
+    for key, finding in FINDINGS.items():
+        pred = predictions.get(key, {})
+        if not pred.get("detected"):
+            continue
+        prob = pred.get("probability")
+        ddx.append({
+            "finding": key,
+            "name": finding.name,
+            "tier": finding.tier,
+            "tier_label": finding.tier_label,
+            "probability": prob,
+            "confidence": _confidence_label(float(prob)) if prob is not None else None,
+            "description": finding.description,
+            "m4_action": finding.m4_action,
+            "considerations": (
+                _consolidation_considerations(all_probs)
+                if key == "consolidation"
+                else CONSIDERATIONS.get(key, [])
+            ),
+        })
+    ddx.sort(key=lambda e: (e["tier"], -(e["probability"] or 0.0)))
+    return {"image": image_name, "metrics": {k: round(v, 4) for k, v in feats.items()}, "ddx": ddx}
 
 
-def format_report(
-    image_name: str,
-    feats: dict[str, float],
-    predictions: dict[str, dict[str, Any]],
-) -> str:
-    found = [key for key, pred in predictions.items() if pred["detected"]]
+def format_report(record: dict[str, Any]) -> str:
+    image_name = record["image"]
+    feats = record["metrics"]
+    ddx = record.get("ddx", [])
     lines = [f"\n{'─' * 60}", f"  Image: {image_name}", f"{'─' * 60}"]
 
-    if not found:
+    if not ddx:
         lines.append("  No significant findings detected.")
         lines.append("  M4 note: Normal chest X-ray — confirm bilateral lung fields,")
         lines.append("           clear costophrenic angles, normal cardiac silhouette.")
         return "\n".join(lines)
 
-    for key in sorted(found, key=lambda k: FINDINGS[k].tier):
-        finding = FINDINGS[key]
-        lines.append(f"\n  {tier_badge(finding.tier)} {finding.name}")
-        lines.append(f"    Finding : {finding.description}")
-        lines.append(f"    M4 action: {finding.m4_action}")
-        prob = predictions[key].get("probability")
-        if prob is not None:
-            lines.append(f"    Confidence: {float(prob):.2%}")
+    for entry in ddx:
+        conf = entry.get("confidence")
+        prob = entry.get("probability")
+        conf_str = f" — {conf.upper()}" if conf else ""
+        prob_str = f" ({float(prob):.0%})" if prob is not None else ""
+        lines.append(f"\n  {tier_badge(entry['tier'])} {entry['name']}{conf_str}{prob_str}")
+        lines.append(f"    Finding : {entry['description']}")
+        if entry.get("considerations"):
+            lines.append("    DDx:")
+            for i, c in enumerate(entry["considerations"], 1):
+                lines.append(f"      {i}. {c}")
+        lines.append(f"    M4 action: {entry['m4_action']}")
 
     lines.append("\n  Raw metrics:")
     lines.append(

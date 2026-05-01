@@ -46,10 +46,12 @@ FINDINGS = {
         m4_action="Assess volume status, BNP, Echo; start diuresis (furosemide); monitor O₂ sat",
     ),
     "consolidation": Finding(
-        name="Consolidation / Pneumonia",
+        name="Possible Consolidation / Pneumonia",
         tier=2,
         tier_label="Should recognize",
-        description="Focal airspace opacity with or without air bronchograms",
+        description=(
+            "Possible airspace opacity — cannot exclude consolidation or pneumonia on heuristic alone"
+        ),
         m4_action="Determine CAP vs HAP; start empiric antibiotics per guidelines; follow up film in 6 wks",
     ),
     "atelectasis": Finding(

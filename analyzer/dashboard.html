@@ -4,859 +4,1615 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Chest X-ray Heuristic Analyzer Dashboard</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     :root {
-      --bg: #f4efe7;
-      --ink: #1c1917;
+      --bg: #f5f3ee;
+      --bg-grad-1: rgba(217, 168, 110, 0.18);
+      --bg-grad-2: rgba(47, 122, 135, 0.14);
+      --ink: #1a1814;
+      --ink-soft: #3b362f;
       --muted: #6b645d;
-      --panel: rgba(255, 252, 248, 0.9);
-      --panel-strong: #fffdf9;
-      --border: rgba(77, 57, 36, 0.14);
-      --shadow: 0 18px 40px rgba(75, 57, 39, 0.08);
-      --tier1: #b53a2d;
-      --tier2: #c9851d;
-      --tier3: #2f7a87;
+      --muted-soft: #9a938a;
+      --panel: #fffdf8;
+      --panel-2: #faf6ee;
+      --border: rgba(60, 45, 30, 0.12);
+      --border-strong: rgba(60, 45, 30, 0.22);
+      --shadow-sm: 0 1px 2px rgba(40, 30, 20, 0.04), 0 2px 6px rgba(40, 30, 20, 0.04);
+      --shadow-md: 0 4px 12px rgba(40, 30, 20, 0.06), 0 18px 40px rgba(40, 30, 20, 0.07);
+      --tier1: #c0382b;
+      --tier1-soft: #fbe9e7;
+      --tier1-ink: #7a1f15;
+      --tier2: #c47a16;
+      --tier2-soft: #fbf1de;
+      --tier2-ink: #7a4a05;
+      --tier3: #2a6c87;
+      --tier3-soft: #e3eef4;
+      --tier3-ink: #18475c;
       --good: #2f855a;
-      --chip: #efe5d8;
+      --good-soft: #e2f1e8;
+      --focus: #2a6c87;
+      --radius: 14px;
+      --radius-lg: 20px;
     }
 
-    * { box-sizing: border-box; }
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html { -webkit-text-size-adjust: 100%; }
 
     body {
       margin: 0;
       color: var(--ink);
-      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", "Helvetica Neue", system-ui, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
       background:
-        radial-gradient(circle at top left, rgba(217, 168, 110, 0.18), transparent 28%),
-        radial-gradient(circle at top right, rgba(47, 122, 135, 0.14), transparent 24%),
-        linear-gradient(180deg, #f7f3ec 0%, var(--bg) 100%);
+        radial-gradient(1200px 600px at 10% -5%, var(--bg-grad-1), transparent 60%),
+        radial-gradient(900px 500px at 90% 0%, var(--bg-grad-2), transparent 55%),
+        linear-gradient(180deg, #f8f5ee 0%, var(--bg) 100%);
+      background-attachment: fixed;
       min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
 
     .shell {
       max-width: 1380px;
       margin: 0 auto;
-      padding: 32px 24px 56px;
+      padding: 28px 22px 56px;
     }
 
-    .hero {
-      display: grid;
-      grid-template-columns: minmax(0, 1.7fr) minmax(320px, 1fr);
-      gap: 18px;
-      margin-bottom: 22px;
-    }
-
-    .hero-card,
-    .panel {
+    /* ---------- Header ---------- */
+    header.hero {
       background: var(--panel);
-      backdrop-filter: blur(12px);
       border: 1px solid var(--border);
-      border-radius: 24px;
-      box-shadow: var(--shadow);
+      border-radius: var(--radius-lg);
+      padding: 24px 26px;
+      box-shadow: var(--shadow-md);
+      margin-bottom: 18px;
+      position: relative;
+      overflow: hidden;
     }
 
-    .hero-card {
-      padding: 28px;
+    .hero::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, transparent 60%, rgba(42, 108, 135, 0.06));
+      pointer-events: none;
     }
 
-    .eyebrow {
-      display: inline-flex;
+    .hero-top {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
       align-items: center;
-      gap: 8px;
-      padding: 6px 12px;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.8);
-      color: var(--muted);
-      font-size: 12px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      margin-bottom: 16px;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      position: relative;
     }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      width: 38px;
+      height: 38px;
+      border-radius: 11px;
+      background: linear-gradient(135deg, var(--tier1) 0%, var(--tier2) 100%);
+      display: grid;
+      place-items: center;
+      color: white;
+      font-weight: 700;
+      font-size: 14px;
+      letter-spacing: -0.02em;
+      box-shadow: 0 4px 10px rgba(192, 56, 43, 0.25);
+      flex-shrink: 0;
+    }
+
+    .brand-text { min-width: 0; }
 
     h1 {
-      margin: 0 0 10px;
-      font-size: clamp(2rem, 4vw, 3.3rem);
-      line-height: 0.98;
-      letter-spacing: -0.04em;
-    }
-
-    .hero p {
       margin: 0;
-      max-width: 58ch;
-      color: var(--muted);
-      line-height: 1.6;
-      font-size: 15px;
-    }
-
-    .hero-notes {
-      padding: 24px;
-      display: grid;
-      gap: 14px;
-      align-content: start;
-    }
-
-    .note-title {
-      font-size: 14px;
+      font-size: clamp(1.1rem, 2vw, 1.35rem);
       font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--muted);
-    }
-
-    .note-list {
-      display: grid;
-      gap: 10px;
-      font-size: 14px;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
       color: var(--ink);
-      line-height: 1.45;
     }
 
-    .note-item {
-      padding: 12px 14px;
-      border-radius: 16px;
-      background: var(--panel-strong);
+    .brand-sub {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .header-meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: var(--panel-2);
       border: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--ink-soft);
+      white-space: nowrap;
     }
 
-    .note-item strong {
-      display: block;
-      margin-bottom: 4px;
-      font-size: 13px;
+    .pill .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--good);
     }
 
-    .stats {
+    .pill.live .dot { animation: pulse 2s infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.45; transform: scale(0.85); }
+    }
+
+    .hero-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 14px;
-      margin-bottom: 22px;
+      gap: 12px;
+      position: relative;
     }
 
     .stat {
-      padding: 18px 20px;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      min-width: 0;
     }
 
     .stat-label {
-      color: var(--muted);
-      font-size: 12px;
+      font-size: 11px;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
-      margin-bottom: 10px;
+      color: var(--muted);
+      margin-bottom: 8px;
+      font-weight: 600;
     }
 
     .stat-value {
-      font-size: clamp(1.7rem, 3vw, 2.5rem);
+      font-size: clamp(1.5rem, 2.4vw, 1.95rem);
       font-weight: 700;
-      letter-spacing: -0.04em;
+      letter-spacing: -0.03em;
+      color: var(--ink);
+      line-height: 1;
     }
 
     .stat-sub {
-      margin-top: 8px;
+      margin-top: 6px;
+      font-size: 12px;
       color: var(--muted);
-      font-size: 13px;
     }
 
-    .chips {
+    .stat.tier1 { background: var(--tier1-soft); border-color: rgba(192, 56, 43, 0.25); }
+    .stat.tier1 .stat-value { color: var(--tier1-ink); }
+    .stat.tier2 { background: var(--tier2-soft); border-color: rgba(196, 122, 22, 0.25); }
+    .stat.tier2 .stat-value { color: var(--tier2-ink); }
+    .stat.tier3 { background: var(--tier3-soft); border-color: rgba(42, 108, 135, 0.25); }
+    .stat.tier3 .stat-value { color: var(--tier3-ink); }
+
+    .tier-stat-bar {
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.55);
+      overflow: hidden;
+      margin-top: 10px;
+    }
+    .tier-stat-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.4s ease;
+    }
+    .stat.tier1 .tier-stat-fill { background: var(--tier1); }
+    .stat.tier2 .tier-stat-fill { background: var(--tier2); }
+    .stat.tier3 .tier-stat-fill { background: var(--tier3); }
+
+    /* ---------- Frequency panel ---------- */
+    section.panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      margin-bottom: 18px;
+      overflow: hidden;
+    }
+
+    .panel-head {
+      padding: 18px 22px 14px;
+      border-bottom: 1px solid var(--border);
       display: flex;
       flex-wrap: wrap;
-      gap: 10px;
-      margin-top: 18px;
-    }
-
-    .chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 12px;
-      border-radius: 999px;
-      background: var(--chip);
-      font-size: 13px;
-      color: var(--ink);
-      border: 1px solid rgba(88, 66, 47, 0.08);
-    }
-
-    .chip-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-    }
-
-    .main-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
-      gap: 18px;
-      margin-bottom: 22px;
-    }
-
-    .panel {
-      padding: 20px;
-    }
-
-    .panel-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
       gap: 12px;
-      margin-bottom: 18px;
+      align-items: flex-end;
+      justify-content: space-between;
     }
 
     .panel-title {
       margin: 0;
-      font-size: 1rem;
-      letter-spacing: -0.02em;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--ink);
     }
 
-    .panel-copy {
-      margin-top: 6px;
+    .panel-sub {
+      margin: 4px 0 0;
+      font-size: 12.5px;
       color: var(--muted);
-      font-size: 13px;
-      line-height: 1.45;
-      max-width: 52ch;
+      max-width: 64ch;
     }
 
-    .stamp {
-      color: var(--muted);
-      font-size: 12px;
-      white-space: nowrap;
-    }
+    .panel-body { padding: 18px 22px 22px; }
 
-    .table-panel {
-      padding: 0;
-      overflow: hidden;
-    }
-
-    .table-top {
-      padding: 18px 20px 14px;
-      border-bottom: 1px solid var(--border);
+    .freq-list {
       display: grid;
-      gap: 14px;
-    }
-
-    .toolbar {
-      display: grid;
-      grid-template-columns: minmax(220px, 1.2fr) repeat(3, minmax(120px, 0.55fr));
       gap: 10px;
     }
 
-    label {
+    .freq-row {
       display: grid;
-      gap: 6px;
-      font-size: 12px;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-    }
-
-    input,
-    select {
-      width: 100%;
-      border: 1px solid rgba(85, 62, 43, 0.15);
-      border-radius: 12px;
-      background: rgba(255, 255, 255, 0.88);
-      color: var(--ink);
-      padding: 10px 12px;
-      font: inherit;
-    }
-
-    .summary-row {
-      display: flex;
-      justify-content: space-between;
+      grid-template-columns: minmax(0, 180px) 1fr auto;
       gap: 14px;
       align-items: center;
-      font-size: 13px;
-      color: var(--muted);
     }
 
-    .table-wrap {
+    .freq-name {
+      font-size: 13px;
+      color: var(--ink-soft);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tier-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .tier-dot.t1 { background: var(--tier1); }
+    .tier-dot.t2 { background: var(--tier2); }
+    .tier-dot.t3 { background: var(--tier3); }
+
+    .freq-track {
+      position: relative;
+      height: 10px;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .freq-fill {
+      position: absolute;
+      inset: 0 auto 0 0;
+      border-radius: 999px;
+      transition: width 0.5s cubic-bezier(.2,.7,.2,1);
+    }
+    .freq-fill.t1 { background: linear-gradient(90deg, var(--tier1), #d65043); }
+    .freq-fill.t2 { background: linear-gradient(90deg, var(--tier2), #e09524); }
+    .freq-fill.t3 { background: linear-gradient(90deg, var(--tier3), #3a89a5); }
+
+    .freq-count {
+      font-size: 12px;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      min-width: 80px;
+      text-align: right;
+    }
+
+    .freq-count strong { color: var(--ink); font-weight: 600; }
+
+    /* ---------- Filter bar ---------- */
+    .filters {
+      padding: 16px 22px;
+      display: grid;
+      gap: 12px;
+      grid-template-columns: minmax(220px, 1.4fr) repeat(3, minmax(140px, 1fr));
+      border-bottom: 1px solid var(--border);
+      background: var(--panel-2);
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .field-label {
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    input[type="search"], select, button.toggle {
+      width: 100%;
+      border: 1px solid var(--border-strong);
+      border-radius: 10px;
+      background: var(--panel);
+      color: var(--ink);
+      padding: 9px 12px;
+      font: inherit;
+      font-size: 13px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    input[type="search"]:focus, select:focus, button.toggle:focus {
+      outline: none;
+      border-color: var(--focus);
+      box-shadow: 0 0 0 3px rgba(42, 108, 135, 0.15);
+    }
+
+    select { cursor: pointer; appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%236b645d' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 30px;
+    }
+
+    .multi {
+      position: relative;
+    }
+
+    .multi-trigger {
+      width: 100%;
+      text-align: left;
+      cursor: pointer;
+      background: var(--panel);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .multi-trigger .caret {
+      width: 10px;
+      height: 6px;
+      flex-shrink: 0;
+    }
+
+    .multi-trigger .summary-text {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .multi-pop {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      background: var(--panel);
+      border: 1px solid var(--border-strong);
+      border-radius: 10px;
+      box-shadow: var(--shadow-md);
+      z-index: 20;
+      max-height: 280px;
       overflow: auto;
-      max-height: 760px;
+      padding: 6px;
+      display: none;
+    }
+
+    .multi.open .multi-pop { display: block; }
+
+    .multi-opt {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 9px;
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: 13px;
+      user-select: none;
+    }
+
+    .multi-opt:hover { background: var(--panel-2); }
+
+    .multi-opt input { width: auto; margin: 0; accent-color: var(--focus); }
+
+    .multi-opt .tier-dot { margin-left: auto; }
+
+    .multi-actions {
+      display: flex;
+      gap: 6px;
+      padding: 4px 6px 8px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 4px;
+    }
+
+    .multi-actions button {
+      flex: 1;
+      font-size: 11.5px;
+      padding: 5px 8px;
+      border-radius: 6px;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      color: var(--ink-soft);
+    }
+
+    .multi-actions button:hover { background: var(--bg); }
+
+    .toggle-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 4px;
+    }
+
+    .toggle-switch {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--ink-soft);
+      user-select: none;
+    }
+
+    .toggle-switch input { position: absolute; opacity: 0; pointer-events: none; }
+
+    .toggle-switch .track {
+      width: 32px;
+      height: 18px;
+      background: var(--border-strong);
+      border-radius: 999px;
+      position: relative;
+      transition: background 0.18s;
+    }
+
+    .toggle-switch .track::after {
+      content: "";
+      position: absolute;
+      top: 2px; left: 2px;
+      width: 14px; height: 14px;
+      background: white;
+      border-radius: 50%;
+      transition: transform 0.18s;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+    }
+
+    .toggle-switch input:checked + .track {
+      background: var(--focus);
+    }
+    .toggle-switch input:checked + .track::after {
+      transform: translateX(14px);
+    }
+    .toggle-switch input:focus-visible + .track {
+      box-shadow: 0 0 0 3px rgba(42, 108, 135, 0.25);
+    }
+
+    .filter-summary {
+      padding: 10px 22px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12.5px;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .filter-summary button.clear {
+      background: transparent;
+      border: 1px solid var(--border-strong);
+      color: var(--ink-soft);
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+
+    .filter-summary button.clear:hover { background: var(--panel-2); }
+
+    /* ---------- Table ---------- */
+    .table-wrap {
+      overflow-x: auto;
+      max-height: 70vh;
+      overflow-y: auto;
     }
 
     table {
       width: 100%;
-      border-collapse: collapse;
-      font-size: 14px;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 13.5px;
     }
 
-    th, td {
-      text-align: left;
-      padding: 12px 14px;
-      border-bottom: 1px solid rgba(85, 62, 43, 0.08);
-      vertical-align: top;
-    }
-
-    th {
+    thead th {
       position: sticky;
       top: 0;
-      background: rgba(251, 247, 241, 0.98);
-      z-index: 1;
+      z-index: 2;
+      background: var(--panel);
       color: var(--muted);
-      font-size: 12px;
-      text-transform: uppercase;
+      font-size: 11px;
       letter-spacing: 0.06em;
+      text-transform: uppercase;
+      font-weight: 700;
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-strong);
+      white-space: nowrap;
+      user-select: none;
     }
 
-    td.code {
-      font-family: "SFMono-Regular", ui-monospace, monospace;
-      font-size: 12px;
+    thead th.sortable {
+      cursor: pointer;
+    }
+
+    thead th.sortable:hover { color: var(--ink); }
+
+    thead th .sort-arrow {
+      display: inline-block;
+      margin-left: 4px;
+      font-size: 10px;
+      color: var(--muted-soft);
+    }
+
+    thead th.active { color: var(--ink); }
+    thead th.active .sort-arrow { color: var(--focus); }
+
+    tbody tr {
+      transition: background 0.12s;
+    }
+
+    tbody tr.summary {
+      cursor: pointer;
+    }
+
+    tbody tr.summary:hover { background: var(--panel-2); }
+
+    tbody td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    tbody tr.summary td:first-child {
+      position: relative;
+      padding-left: 38px;
+    }
+
+    .row-caret {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 10px;
+      height: 10px;
       color: var(--muted);
+      transition: transform 0.18s;
+      pointer-events: none;
     }
 
-    .finding-list {
+    tr.summary.open .row-caret { transform: translateY(-50%) rotate(90deg); color: var(--ink); }
+
+    .image-id {
+      font-family: ui-monospace, "SF Mono", "Roboto Mono", monospace;
+      font-size: 12.5px;
+      color: var(--ink);
+      font-weight: 500;
+    }
+
+    .findings-cell {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
+      gap: 4px;
+      max-width: 100%;
     }
 
-    .finding-pill {
-      padding: 6px 10px;
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 9px;
       border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 600;
+      white-space: nowrap;
+      border: 1px solid transparent;
+      letter-spacing: 0.005em;
+    }
+
+    .badge.t1 {
+      background: var(--tier1);
       color: white;
-      font-size: 12px;
+      border-color: var(--tier1);
+    }
+    .badge.t2 {
+      background: var(--tier2);
+      color: white;
+      border-color: var(--tier2);
+    }
+    .badge.t3 {
+      background: var(--tier3);
+      color: white;
+      border-color: var(--tier3);
+    }
+
+    .badge.outline.t1 { background: var(--tier1-soft); color: var(--tier1-ink); border-color: rgba(192, 56, 43, 0.3); }
+    .badge.outline.t2 { background: var(--tier2-soft); color: var(--tier2-ink); border-color: rgba(196, 122, 22, 0.3); }
+    .badge.outline.t3 { background: var(--tier3-soft); color: var(--tier3-ink); border-color: rgba(42, 108, 135, 0.3); }
+
+    .badge-clean {
+      display: inline-flex;
+      gap: 5px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      background: var(--good-soft);
+      color: var(--good);
+      border: 1px solid rgba(47, 133, 90, 0.25);
+      font-weight: 600;
+    }
+
+    .num {
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    .col-count, .col-tier {
+      width: 1%;
       white-space: nowrap;
     }
 
-    .mini {
-      font-size: 12px;
-      color: var(--muted);
+    /* ---------- Detail row ---------- */
+    tr.detail { display: none; }
+    tr.detail.open { display: table-row; }
+
+    tr.detail td {
+      background: var(--panel-2);
+      padding: 0;
+      border-bottom: 1px solid var(--border-strong);
     }
 
-    .empty {
-      padding: 28px 20px 34px;
+    .detail-inner {
+      padding: 18px 20px 20px 38px;
+      display: grid;
+      gap: 18px;
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    }
+
+    .detail-section h4 {
+      margin: 0 0 10px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
       color: var(--muted);
+      font-weight: 700;
+    }
+
+    .finding-card {
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      margin-bottom: 8px;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 10px 14px;
+    }
+
+    .finding-card .badge { align-self: start; }
+
+    .finding-card .name {
+      font-weight: 700;
+      font-size: 13.5px;
+      color: var(--ink);
+      margin: 0;
+    }
+
+    .finding-card .desc {
+      font-size: 12.5px;
+      color: var(--muted);
+      margin: 2px 0 0;
+    }
+
+    .finding-card .action {
+      grid-column: 1 / -1;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: var(--panel-2);
+      border-left: 3px solid var(--tier3);
+      font-size: 12.5px;
+      color: var(--ink-soft);
+      line-height: 1.5;
+    }
+    .finding-card.t1 .action { border-left-color: var(--tier1); }
+    .finding-card.t2 .action { border-left-color: var(--tier2); }
+    .finding-card.t3 .action { border-left-color: var(--tier3); }
+
+    .finding-card .action::before {
+      content: "M4 action: ";
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    .metric {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 6px;
+      border-radius: 6px;
+      font-size: 12.5px;
+    }
+
+    .metric:nth-child(odd) { background: var(--panel-2); }
+
+    .metric .k {
+      color: var(--muted);
+      font-family: ui-monospace, "SF Mono", monospace;
+      font-size: 11.5px;
+    }
+
+    .metric .v {
+      font-weight: 600;
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .empty-state {
+      padding: 48px 20px;
       text-align: center;
+      color: var(--muted);
     }
 
+    .empty-state h3 {
+      margin: 0 0 6px;
+      font-size: 15px;
+      color: var(--ink-soft);
+    }
+
+    /* ---------- Pagination ---------- */
+    .pagination {
+      padding: 12px 22px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid var(--border);
+      flex-wrap: wrap;
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+
+    .pager-controls { display: flex; gap: 6px; align-items: center; }
+
+    .pager-controls button {
+      background: var(--panel);
+      border: 1px solid var(--border-strong);
+      color: var(--ink);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      cursor: pointer;
+      font: inherit;
+    }
+    .pager-controls button:hover:not(:disabled) { background: var(--panel-2); }
+    .pager-controls button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ---------- Error ---------- */
     #error {
-      color: var(--tier1);
-      margin-bottom: 18px;
-      font-size: 14px;
-      min-height: 20px;
+      display: none;
+      background: var(--tier1-soft);
+      color: var(--tier1-ink);
+      border: 1px solid rgba(192, 56, 43, 0.3);
+      padding: 12px 16px;
+      border-radius: var(--radius);
+      margin-bottom: 14px;
+      font-size: 13px;
     }
+    #error.show { display: block; }
 
-    @media (max-width: 1120px) {
-      .hero,
-      .main-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .stats {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .toolbar {
-        grid-template-columns: 1fr 1fr;
-      }
+    /* ---------- Responsive ---------- */
+    @media (max-width: 1100px) {
+      .hero-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .filters { grid-template-columns: 1fr 1fr; }
+      .detail-inner { grid-template-columns: 1fr; }
     }
 
     @media (max-width: 720px) {
-      .shell {
-        padding: 18px 14px 40px;
-      }
+      .shell { padding: 18px 12px 40px; }
+      header.hero { padding: 18px 18px; }
+      .panel-head, .panel-body, .filters, .filter-summary, .pagination { padding-left: 16px; padding-right: 16px; }
+      .filters { grid-template-columns: 1fr; }
+      .freq-row { grid-template-columns: 1fr; gap: 4px; }
+      .freq-name { font-size: 12.5px; }
+      .freq-count { text-align: left; min-width: 0; }
+      thead th, tbody td { padding: 10px 10px; }
+      tbody tr.summary td:first-child { padding-left: 28px; }
+      .row-caret { left: 10px; }
+      .detail-inner { padding: 14px 12px 16px 28px; }
+      .col-tier { display: none; }
+    }
 
-      .stats,
-      .toolbar {
-        grid-template-columns: 1fr;
-      }
+    @media (max-width: 420px) {
+      .hero-grid { grid-template-columns: 1fr; }
+      h1 { font-size: 1rem; }
+      .stat-value { font-size: 1.4rem; }
+    }
 
-      .summary-row {
-        align-items: flex-start;
-        flex-direction: column;
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
       }
     }
   </style>
 </head>
 <body>
   <div class="shell">
-    <section class="hero">
-      <div class="hero-card">
-        <div class="eyebrow">Demo Dashboard · Heuristic CXR Review</div>
-        <h1>NIH ChestX-ray14 Heuristic Analyzer</h1>
-        <p>
-          A lightweight chest X-ray triage demo built from classical image features rather than
-          learned model weights. It surfaces likely findings, buckets them by medical-student urgency,
-          and turns the output into a shareable dashboard you can walk through with someone in a few minutes.
-        </p>
-        <div class="chips">
-          <span class="chip"><span class="chip-dot" style="background: var(--tier1)"></span>Tier 1 Must recognize</span>
-          <span class="chip"><span class="chip-dot" style="background: var(--tier2)"></span>Tier 2 Should recognize</span>
-          <span class="chip"><span class="chip-dot" style="background: var(--tier3)"></span>Tier 3 Should know</span>
+    <header class="hero" role="banner">
+      <div class="hero-top">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">CXR</div>
+          <div class="brand-text">
+            <h1>NIH ChestX-ray14 Heuristic Analyzer</h1>
+            <div class="brand-sub">Classical-feature triage demo &middot; tiered by medical-student urgency</div>
+          </div>
+        </div>
+        <div class="header-meta">
+          <span class="pill"><span class="dot" style="background: var(--tier1)"></span>Tier 1 Must</span>
+          <span class="pill"><span class="dot" style="background: var(--tier2)"></span>Tier 2 Should</span>
+          <span class="pill"><span class="dot" style="background: var(--tier3)"></span>Tier 3 Know</span>
+          <span class="pill live" id="livePill"><span class="dot"></span><span id="liveText">Loading</span></span>
         </div>
       </div>
-      <aside class="hero-notes hero-card">
-        <div class="note-title">How To Read This</div>
-        <div class="note-list">
-          <div class="note-item">
-            <strong>What it is</strong>
-            Hand-built grayscale heuristics that estimate findings from pixel statistics.
-          </div>
-          <div class="note-item">
-            <strong>What it is not</strong>
-            Not a diagnostic model and not calibrated against labels in this view.
-          </div>
-          <div class="note-item">
-            <strong>Best demo angle</strong>
-            Show the findings mix, the case table, and how the tiers map to action.
-          </div>
+      <div class="hero-grid">
+        <div class="stat">
+          <div class="stat-label">Images analyzed</div>
+          <div class="stat-value" id="statImages">&mdash;</div>
+          <div class="stat-sub" id="statRange">No data</div>
         </div>
-      </aside>
-    </section>
+        <div class="stat">
+          <div class="stat-label">With findings</div>
+          <div class="stat-value" id="statWithFindings">&mdash;</div>
+          <div class="stat-sub" id="statWithFindingsRate">0% of cases</div>
+        </div>
+        <div class="stat tier1">
+          <div class="stat-label">Tier 1 hits</div>
+          <div class="stat-value" id="statTier1">0</div>
+          <div class="stat-sub" id="statTier1Rate">Critical findings</div>
+          <div class="tier-stat-bar"><div class="tier-stat-fill" id="bar1" style="width:0%"></div></div>
+        </div>
+        <div class="stat tier2">
+          <div class="stat-label">Tier 2 hits</div>
+          <div class="stat-value" id="statTier2">0</div>
+          <div class="stat-sub" id="statTier2Rate">Should recognize</div>
+          <div class="tier-stat-bar"><div class="tier-stat-fill" id="bar2" style="width:0%"></div></div>
+        </div>
+      </div>
+    </header>
 
-    <div id="error"></div>
+    <div id="error" role="alert"></div>
 
-    <section class="stats">
-      <div class="panel stat">
-        <div class="stat-label">Images Reviewed</div>
-        <div class="stat-value" id="statImages">0</div>
-        <div class="stat-sub" id="statRange">Waiting for data</div>
-      </div>
-      <div class="panel stat">
-        <div class="stat-label">Tier 1 Hits</div>
-        <div class="stat-value" id="statTier1">0</div>
-        <div class="stat-sub" id="statTier1Rate">0% of cases</div>
-      </div>
-      <div class="panel stat">
-        <div class="stat-label">Average Findings</div>
-        <div class="stat-value" id="statAverage">0.0</div>
-        <div class="stat-sub">Detected findings per image</div>
-      </div>
-      <div class="panel stat">
-        <div class="stat-label">Most Frequent Finding</div>
-        <div class="stat-value" id="statTopFinding">None</div>
-        <div class="stat-sub" id="statTopFindingRate">0 cases</div>
-      </div>
-    </section>
-
-    <section class="main-grid">
-      <div class="panel">
-        <div class="panel-header">
-          <div>
-            <h2 class="panel-title">Finding Frequency Across This Sample</h2>
-            <div class="panel-copy">
-              This gives the fast story for the dataset: which heuristics are firing most often and how the sample tilts across urgency tiers.
-            </div>
-          </div>
-          <div class="stamp" id="datasetStamp">No data loaded</div>
+    <section class="panel" id="freqPanel" aria-labelledby="freqTitle">
+      <div class="panel-head">
+        <div>
+          <h2 class="panel-title" id="freqTitle">Per-finding fired rate</h2>
+          <p class="panel-sub">How often each heuristic triggered across the loaded sample. Bars are colored by tier urgency.</p>
         </div>
-        <canvas id="freqChart" height="220"></canvas>
+        <div class="pill" id="tier3StatPill"><span class="dot" style="background: var(--tier3)"></span><span id="statTier3">0</span> Tier 3 hits</div>
       </div>
-      <div class="panel">
-        <div class="panel-header">
-          <div>
-            <h2 class="panel-title">Tier Mix</h2>
-            <div class="panel-copy">
-              Counts of detected findings grouped by educational urgency, not by confirmed diagnosis prevalence.
-            </div>
-          </div>
-        </div>
-        <canvas id="tierChart" height="220"></canvas>
+      <div class="panel-body">
+        <div class="freq-list" id="freqList"></div>
       </div>
     </section>
 
-    <section class="main-grid">
-      <div class="panel">
-        <div class="panel-header">
-          <div>
-            <h2 class="panel-title">Metric Trendline</h2>
-            <div class="panel-copy">
-              A quick look at three of the most informative scalar features across the currently loaded sample.
-            </div>
-          </div>
+    <section class="panel" aria-labelledby="caseTitle">
+      <div class="panel-head">
+        <div>
+          <h2 class="panel-title" id="caseTitle">Case browser</h2>
+          <p class="panel-sub">Click any row to expand metrics and per-finding M4 action plans. Sort columns by clicking headers.</p>
         </div>
-        <canvas id="metricsChart" height="250"></canvas>
+        <div class="pill"><span id="visibleCount">0</span>&nbsp;visible</div>
       </div>
-      <div class="panel">
-        <div class="panel-header">
-          <div>
-            <h2 class="panel-title">Most Complex Cases</h2>
-            <div class="panel-copy">
-              The cases with the highest number of triggered findings. Useful when you want a faster “show me interesting examples” starting point.
-            </div>
-          </div>
-        </div>
-        <table id="complexityTable"></table>
-      </div>
-    </section>
 
-    <section class="panel table-panel">
-      <div class="table-top">
-        <div class="panel-header" style="margin-bottom: 0;">
-          <div>
-            <h2 class="panel-title">Case Browser</h2>
-            <div class="panel-copy">
-              Search by image id, filter to a specific finding, and page down the sample so the dashboard stays usable as you grow the dataset.
-            </div>
-          </div>
-          <div class="stamp" id="refreshStamp">Awaiting first refresh</div>
+      <div class="filters">
+        <div class="field">
+          <label class="field-label" for="searchInput">Search image id</label>
+          <input id="searchInput" type="search" placeholder="e.g. 00006605_014" autocomplete="off" />
         </div>
-        <div class="toolbar">
-          <label>
-            Search image
-            <input id="searchInput" type="search" placeholder="00006605_014" />
-          </label>
-          <label>
-            Finding filter
-            <select id="findingFilter"></select>
-          </label>
-          <label>
-            Sort cases
-            <select id="sortMode">
-              <option value="interesting">Most findings first</option>
-              <option value="alphabetical">Image id</option>
-              <option value="tier1">Tier 1 first</option>
-            </select>
-          </label>
-          <label>
-            Rows shown
-            <select id="pageSize">
-              <option value="20">20</option>
-              <option value="40" selected>40</option>
-              <option value="80">80</option>
-              <option value="120">120</option>
-            </select>
+        <div class="field">
+          <label class="field-label" for="findingMultiBtn">Findings</label>
+          <div class="multi" id="findingMulti">
+            <button id="findingMultiBtn" class="toggle multi-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+              <span class="summary-text" id="findingMultiSummary">All findings</span>
+              <svg class="caret" viewBox="0 0 10 6"><path fill="currentColor" d="M0 0l5 6 5-6z"/></svg>
+            </button>
+            <div class="multi-pop" id="findingMultiPop" role="listbox"></div>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label" for="tierFilter">Tier</label>
+          <select id="tierFilter">
+            <option value="all">All tiers</option>
+            <option value="1">Tier 1 only (critical)</option>
+            <option value="2">Tier 2 only</option>
+            <option value="3">Tier 3 only</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field-label">Display</label>
+          <label class="toggle-switch">
+            <input id="onlyFindings" type="checkbox" />
+            <span class="track" aria-hidden="true"></span>
+            <span>Only with findings</span>
           </label>
         </div>
-        <div class="summary-row">
-          <div id="tableSummary">0 matching cases</div>
-          <div>
-            <button id="prevBtn" type="button">Previous</button>
-            <button id="nextBtn" type="button">Next</button>
-          </div>
+      </div>
+
+      <div class="filter-summary">
+        <div id="filterSummaryText">Showing all cases</div>
+        <button class="clear" id="clearFilters" type="button">Reset filters</button>
+      </div>
+
+      <div class="table-wrap" id="tableWrap">
+        <table id="casesTable" aria-label="Per-image findings">
+          <thead>
+            <tr>
+              <th class="sortable" data-sort="image">Image<span class="sort-arrow"></span></th>
+              <th>Detected findings</th>
+              <th class="sortable col-tier" data-sort="tier">Highest tier<span class="sort-arrow"></span></th>
+              <th class="sortable col-count" data-sort="count">Count<span class="sort-arrow"></span></th>
+            </tr>
+          </thead>
+          <tbody id="casesBody"></tbody>
+        </table>
+        <div class="empty-state" id="emptyState" hidden>
+          <h3>No matching cases</h3>
+          <div>Try clearing filters or widening the tier selection.</div>
         </div>
       </div>
-      <div class="table-wrap">
-        <table id="casesTable"></table>
+
+      <div class="pagination">
+        <div id="paginationInfo">Page 1 of 1</div>
+        <div class="pager-controls">
+          <label class="field-label" for="pageSize" style="margin-right:6px">Per page</label>
+          <select id="pageSize" style="width:auto; padding: 6px 28px 6px 10px; font-size: 12px;">
+            <option value="25">25</option>
+            <option value="50" selected>50</option>
+            <option value="100">100</option>
+            <option value="500">500</option>
+          </select>
+          <button id="prevBtn" type="button">&larr; Prev</button>
+          <button id="nextBtn" type="button">Next &rarr;</button>
+        </div>
       </div>
-      <div class="empty" id="emptyState" hidden>No cases match the current filters.</div>
     </section>
+
+    <footer style="text-align:center; padding: 18px 0 0; color: var(--muted-soft); font-size: 11.5px;">
+      Heuristic prototype &middot; not a diagnostic tool &middot; pixel-stat features only
+    </footer>
   </div>
 
   <script>
-    const TIER_COLOR = {1: "#b53a2d", 2: "#c9851d", 3: "#2f7a87"};
-    const FINDING_ORDER = [
-      "pneumothorax", "pulmonary_edema",
-      "cardiomegaly", "pleural_effusion", "consolidation", "atelectasis",
-      "emphysema", "focal_opacity"
+  (function () {
+    "use strict";
+
+    var FINDING_KEYS = [
+      "pneumothorax",
+      "pulmonary_edema",
+      "cardiomegaly",
+      "pleural_effusion",
+      "consolidation",
+      "atelectasis",
+      "emphysema",
+      "focal_opacity"
     ];
 
-    let freqChart;
-    let tierChart;
-    let metricsChart;
-    let fullData = [];
-    let currentPage = 0;
+    var TIER_CLASS = {1: "t1", 2: "t2", 3: "t3"};
 
-    const searchInput = document.getElementById("searchInput");
-    const findingFilter = document.getElementById("findingFilter");
-    const sortMode = document.getElementById("sortMode");
-    const pageSize = document.getElementById("pageSize");
+    var state = {
+      data: [],
+      schema: null,        // template (first row's findings) for labels/descriptions
+      sort: {key: "count", dir: "desc"},
+      page: 0,
+      pageSize: 50,
+      search: "",
+      tier: "all",
+      onlyFindings: false,
+      findings: new Set(),  // empty = all
+      openImage: null
+    };
 
-    function formatPct(value, total) {
-      return total ? `${((value / total) * 100).toFixed(1)}% of cases` : "0% of cases";
+    // ---------- Elements ----------
+    var $ = function (id) { return document.getElementById(id); };
+    var els = {
+      error: $("error"),
+      liveText: $("liveText"),
+      statImages: $("statImages"),
+      statRange: $("statRange"),
+      statWithFindings: $("statWithFindings"),
+      statWithFindingsRate: $("statWithFindingsRate"),
+      statTier1: $("statTier1"),
+      statTier1Rate: $("statTier1Rate"),
+      statTier2: $("statTier2"),
+      statTier2Rate: $("statTier2Rate"),
+      statTier3: $("statTier3"),
+      bar1: $("bar1"),
+      bar2: $("bar2"),
+      freqList: $("freqList"),
+      visibleCount: $("visibleCount"),
+      searchInput: $("searchInput"),
+      findingMulti: $("findingMulti"),
+      findingMultiBtn: $("findingMultiBtn"),
+      findingMultiPop: $("findingMultiPop"),
+      findingMultiSummary: $("findingMultiSummary"),
+      tierFilter: $("tierFilter"),
+      onlyFindings: $("onlyFindings"),
+      clearFilters: $("clearFilters"),
+      filterSummaryText: $("filterSummaryText"),
+      casesBody: $("casesBody"),
+      emptyState: $("emptyState"),
+      pageSize: $("pageSize"),
+      prevBtn: $("prevBtn"),
+      nextBtn: $("nextBtn"),
+      paginationInfo: $("paginationInfo"),
+      thead: document.querySelectorAll("#casesTable thead th")
+    };
+
+    // ---------- Helpers ----------
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, function (c) {
+        return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];
+      });
+    }
+
+    function findingMeta(key) {
+      // Pull labels from schema (first record), with sensible fallbacks
+      if (state.schema && state.schema[key]) return state.schema[key];
+      return { name: key, tier: 3, tier_label: "", description: "", m4_action: "" };
+    }
+
+    function pct(v, total) {
+      if (!total) return 0;
+      return (v / total) * 100;
+    }
+
+    function formatPct(v, total) {
+      return total ? ((v / total) * 100).toFixed(1) + "% of cases" : "0% of cases";
     }
 
     function summarizeRow(row) {
-      const detected = FINDING_ORDER.filter(key => row.findings[key].detected);
-      const highestTier = detected.length
-        ? Math.min(...detected.map(key => row.findings[key].tier))
-        : null;
+      var detected = [];
+      var highestTier = null;
+      for (var i = 0; i < FINDING_KEYS.length; i++) {
+        var k = FINDING_KEYS[i];
+        var f = row.findings[k];
+        if (f && f.detected) {
+          detected.push(k);
+          if (highestTier === null || f.tier < highestTier) highestTier = f.tier;
+        }
+      }
       return {
         image: row.image,
+        raw: row,
         findings: detected,
-        highestTier,
-        totalFindings: detected.length,
-        ctr: row.metrics.ctr,
-        basal: row.metrics.basal_opacity,
-        haze: row.metrics.bilateral_haze
+        highestTier: highestTier,
+        count: detected.length
       };
     }
 
-    function getStats(data) {
-      const findingCounts = Object.fromEntries(FINDING_ORDER.map(key => [key, 0]));
-      const tierCounts = {1: 0, 2: 0, 3: 0};
-      let totalFindings = 0;
-      let tier1Cases = 0;
+    // ---------- Stats / hero ----------
+    function computeStats() {
+      var n = state.data.length;
+      var withFindings = 0;
+      var tierCases = {1: 0, 2: 0, 3: 0};
+      var tierFindingCounts = {1: 0, 2: 0, 3: 0};
+      var findingCounts = {};
+      FINDING_KEYS.forEach(function (k) { findingCounts[k] = 0; });
 
-      data.forEach(row => {
-        const detected = FINDING_ORDER.filter(key => row.findings[key].detected);
-        totalFindings += detected.length;
-        if (detected.some(key => row.findings[key].tier === 1)) {
-          tier1Cases += 1;
-        }
-        detected.forEach(key => {
-          findingCounts[key] += 1;
-          tierCounts[row.findings[key].tier] += 1;
+      state.data.forEach(function (row) {
+        var any = false;
+        var seenTiers = {};
+        FINDING_KEYS.forEach(function (k) {
+          var f = row.findings[k];
+          if (f && f.detected) {
+            any = true;
+            findingCounts[k] += 1;
+            tierFindingCounts[f.tier] = (tierFindingCounts[f.tier] || 0) + 1;
+            seenTiers[f.tier] = true;
+          }
         });
+        if (any) withFindings += 1;
+        Object.keys(seenTiers).forEach(function (t) { tierCases[t] = (tierCases[t] || 0) + 1; });
       });
-
-      const topFindingKey = FINDING_ORDER.slice().sort((a, b) => findingCounts[b] - findingCounts[a])[0];
 
       return {
-        findingCounts,
-        tierCounts,
-        tier1Cases,
-        avgFindings: data.length ? totalFindings / data.length : 0,
-        topFindingKey,
-        topFindingCount: topFindingKey ? findingCounts[topFindingKey] : 0
+        total: n,
+        withFindings: withFindings,
+        tierCases: tierCases,
+        tierFindingCounts: tierFindingCounts,
+        findingCounts: findingCounts
       };
     }
 
-    function updateSummaryCards(data, stats) {
-      document.getElementById("statImages").textContent = String(data.length);
-      document.getElementById("statRange").textContent = data.length
-        ? `${data[0].image} to ${data[data.length - 1].image}`
+    function renderHero(stats) {
+      var n = stats.total;
+      els.statImages.textContent = String(n);
+      els.statRange.textContent = n
+        ? state.data[0].image + " ... " + state.data[n - 1].image
         : "No records";
-      document.getElementById("statTier1").textContent = String(stats.tier1Cases);
-      document.getElementById("statTier1Rate").textContent = formatPct(stats.tier1Cases, data.length);
-      document.getElementById("statAverage").textContent = stats.avgFindings.toFixed(2);
+      els.statWithFindings.textContent = String(stats.withFindings);
+      els.statWithFindingsRate.textContent = formatPct(stats.withFindings, n);
 
-      if (stats.topFindingKey) {
-        const label = data[0].findings[stats.topFindingKey].name;
-        document.getElementById("statTopFinding").textContent = label;
-        document.getElementById("statTopFindingRate").textContent = `${stats.topFindingCount} of ${data.length} cases`;
+      els.statTier1.textContent = String(stats.tierCases[1] || 0);
+      els.statTier1Rate.textContent = (stats.tierFindingCounts[1] || 0) + " findings, " + (n ? Math.round(pct(stats.tierCases[1], n)) : 0) + "% of cases";
+      els.statTier2.textContent = String(stats.tierCases[2] || 0);
+      els.statTier2Rate.textContent = (stats.tierFindingCounts[2] || 0) + " findings, " + (n ? Math.round(pct(stats.tierCases[2], n)) : 0) + "% of cases";
+      els.statTier3.textContent = String(stats.tierCases[3] || 0);
+
+      els.bar1.style.width = pct(stats.tierCases[1], n).toFixed(1) + "%";
+      els.bar2.style.width = pct(stats.tierCases[2], n).toFixed(1) + "%";
+    }
+
+    function renderFreqList(stats) {
+      var n = stats.total || 1;
+      var rows = FINDING_KEYS.slice().sort(function (a, b) {
+        return stats.findingCounts[b] - stats.findingCounts[a];
+      });
+      var maxVal = 0;
+      rows.forEach(function (k) { if (stats.findingCounts[k] > maxVal) maxVal = stats.findingCounts[k]; });
+      maxVal = Math.max(maxVal, 1);
+
+      var html = rows.map(function (k) {
+        var meta = findingMeta(k);
+        var count = stats.findingCounts[k];
+        var rate = (count / n * 100).toFixed(1);
+        var fillWidth = (count / maxVal * 100).toFixed(1);
+        var t = meta.tier;
+        return '<div class="freq-row">'
+          + '<div class="freq-name"><span class="tier-dot t' + Number(t) + '"></span>' + escapeHtml(meta.name) + '</div>'
+          + '<div class="freq-track"><div class="freq-fill t' + Number(t) + '" style="width:' + fillWidth + '%"></div></div>'
+          + '<div class="freq-count"><strong>' + count + '</strong> &middot; ' + rate + '%</div>'
+          + '</div>';
+      }).join("");
+
+      els.freqList.innerHTML = html;
+    }
+
+    // ---------- Filters: multi-select ----------
+    function buildFindingMulti() {
+      var actions = '<div class="multi-actions">'
+        + '<button type="button" data-act="all">All</button>'
+        + '<button type="button" data-act="none">None</button>'
+        + '</div>';
+
+      var opts = FINDING_KEYS.map(function (k) {
+        var meta = findingMeta(k);
+        var checked = state.findings.size === 0 || state.findings.has(k) ? "checked" : "";
+        return '<label class="multi-opt">'
+          + '<input type="checkbox" value="' + k + '" ' + checked + '>'
+          + '<span>' + escapeHtml(meta.name) + '</span>'
+          + '<span class="tier-dot t' + Number(meta.tier) + '" title="Tier ' + Number(meta.tier) + '"></span>'
+          + '</label>';
+      }).join("");
+
+      els.findingMultiPop.innerHTML = actions + opts;
+      updateFindingMultiSummary();
+    }
+
+    function updateFindingMultiSummary() {
+      var total = FINDING_KEYS.length;
+      var sel = state.findings.size;
+      var text;
+      if (sel === 0 || sel === total) {
+        text = "All findings";
+      } else if (sel === 1) {
+        var only = Array.from(state.findings)[0];
+        text = findingMeta(only).name;
       } else {
-        document.getElementById("statTopFinding").textContent = "None";
-        document.getElementById("statTopFindingRate").textContent = "0 cases";
+        text = sel + " of " + total + " selected";
       }
+      els.findingMultiSummary.textContent = text;
     }
 
-    function destroyCharts() {
-      if (freqChart) freqChart.destroy();
-      if (tierChart) tierChart.destroy();
-      if (metricsChart) metricsChart.destroy();
-    }
+    // ---------- Filtered + sorted rows ----------
+    function getRows() {
+      var q = state.search.trim().toLowerCase();
+      var tierSel = state.tier;
+      var pickFindings = state.findings.size && state.findings.size !== FINDING_KEYS.length
+        ? state.findings : null;
 
-    function renderCharts(data, stats) {
-      destroyCharts();
+      var summarized = state.data.map(summarizeRow);
 
-      freqChart = new Chart(document.getElementById("freqChart"), {
-        type: "bar",
-        data: {
-          labels: FINDING_ORDER.map(key => data[0].findings[key].name),
-          datasets: [{
-            data: FINDING_ORDER.map(key => stats.findingCounts[key]),
-            backgroundColor: FINDING_ORDER.map(key => `${TIER_COLOR[data[0].findings[key].tier]}cc`),
-            borderColor: FINDING_ORDER.map(key => TIER_COLOR[data[0].findings[key].tier]),
-            borderWidth: 1.5,
-            borderRadius: 8
-          }]
-        },
-        options: {
-          plugins: { legend: { display: false } },
-          scales: {
-            x: { ticks: { color: "#6b645d", maxRotation: 0, minRotation: 0 }, grid: { display: false } },
-            y: { ticks: { color: "#6b645d", precision: 0 }, grid: { color: "rgba(85, 62, 43, 0.1)" } }
+      var rows = summarized.filter(function (r) {
+        if (q && r.image.toLowerCase().indexOf(q) === -1) return false;
+        if (state.onlyFindings && r.count === 0) return false;
+        if (tierSel !== "all") {
+          var t = parseInt(tierSel, 10);
+          var hasT = false;
+          for (var i = 0; i < r.findings.length; i++) {
+            if (r.raw.findings[r.findings[i]].tier === t) { hasT = true; break; }
           }
+          if (!hasT) return false;
         }
-      });
-
-      tierChart = new Chart(document.getElementById("tierChart"), {
-        type: "doughnut",
-        data: {
-          labels: ["Tier 1", "Tier 2", "Tier 3"],
-          datasets: [{
-            data: [stats.tierCounts[1], stats.tierCounts[2], stats.tierCounts[3]],
-            backgroundColor: [TIER_COLOR[1], TIER_COLOR[2], TIER_COLOR[3]],
-            borderWidth: 0
-          }]
-        },
-        options: {
-          plugins: {
-            legend: {
-              position: "bottom",
-              labels: { color: "#6b645d", boxWidth: 14, padding: 18 }
-            }
-          },
-          cutout: "62%"
-        }
-      });
-
-      const metricSample = data.slice(0, 80);
-      metricsChart = new Chart(document.getElementById("metricsChart"), {
-        type: "line",
-        data: {
-          labels: metricSample.map(row => row.image.replace(".png", "")),
-          datasets: [
-            { label: "CTR", data: metricSample.map(row => row.metrics.ctr), borderColor: "#b53a2d", tension: 0.28, pointRadius: 0, borderWidth: 2 },
-            { label: "Basal opacity", data: metricSample.map(row => row.metrics.basal_opacity), borderColor: "#c9851d", tension: 0.28, pointRadius: 0, borderWidth: 2 },
-            { label: "Bilateral haze", data: metricSample.map(row => row.metrics.bilateral_haze), borderColor: "#2f7a87", tension: 0.28, pointRadius: 0, borderWidth: 2 }
-          ]
-        },
-        options: {
-          plugins: {
-            legend: { labels: { color: "#6b645d" } }
-          },
-          scales: {
-            x: { ticks: { display: false }, grid: { display: false } },
-            y: { min: 0, max: 1.05, ticks: { color: "#6b645d" }, grid: { color: "rgba(85, 62, 43, 0.1)" } }
+        if (pickFindings) {
+          var match = false;
+          for (var j = 0; j < r.findings.length; j++) {
+            if (pickFindings.has(r.findings[j])) { match = true; break; }
           }
+          if (!match) return false;
         }
-      });
-    }
-
-    function renderComplexityTable(data) {
-      const table = document.getElementById("complexityTable");
-      const rows = data
-        .map(summarizeRow)
-        .sort((a, b) => b.totalFindings - a.totalFindings || (a.image < b.image ? -1 : 1))
-        .slice(0, 8);
-
-      table.innerHTML = `
-        <tr>
-          <th>Image</th>
-          <th>Findings</th>
-          <th>Highest tier</th>
-        </tr>
-        ${rows.map(row => `
-          <tr>
-            <td class="code">${row.image}</td>
-            <td>${row.totalFindings}</td>
-            <td>${row.highestTier ? `Tier ${row.highestTier}` : "None"}</td>
-          </tr>
-        `).join("")}
-      `;
-    }
-
-    function populateFindingFilter(data) {
-      const options = ['<option value="all">All findings</option>']
-        .concat(FINDING_ORDER.map(key => `<option value="${key}">${data[0].findings[key].name}</option>`));
-      findingFilter.innerHTML = options.join("");
-    }
-
-    function getFilteredRows() {
-      const query = searchInput.value.trim().toLowerCase();
-      const finding = findingFilter.value;
-      const sorter = sortMode.value;
-
-      let rows = fullData.filter(row => {
-        const matchesSearch = !query || row.image.toLowerCase().includes(query);
-        const matchesFinding = finding === "all" || row.findings[finding].detected;
-        return matchesSearch && matchesFinding;
+        return true;
       });
 
-      rows = rows.map(summarizeRow);
-
-      if (sorter === "interesting") {
-        rows.sort((a, b) => b.totalFindings - a.totalFindings || (a.highestTier ?? 9) - (b.highestTier ?? 9) || a.image.localeCompare(b.image));
-      } else if (sorter === "tier1") {
-        rows.sort((a, b) => (a.highestTier ?? 9) - (b.highestTier ?? 9) || b.totalFindings - a.totalFindings || a.image.localeCompare(b.image));
-      } else {
-        rows.sort((a, b) => a.image.localeCompare(b.image));
-      }
+      var key = state.sort.key;
+      var dir = state.sort.dir === "asc" ? 1 : -1;
+      rows.sort(function (a, b) {
+        if (key === "image") return a.image.localeCompare(b.image) * dir;
+        if (key === "count") {
+          if (a.count !== b.count) return (a.count - b.count) * dir;
+          return a.image.localeCompare(b.image);
+        }
+        if (key === "tier") {
+          var at = a.highestTier === null ? 9 : a.highestTier;
+          var bt = b.highestTier === null ? 9 : b.highestTier;
+          if (at !== bt) return (at - bt) * dir;
+          if (a.count !== b.count) return b.count - a.count;
+          return a.image.localeCompare(b.image);
+        }
+        return 0;
+      });
 
       return rows;
     }
 
-    function renderCasesTable() {
-      const rows = getFilteredRows();
-      const page = Number(pageSize.value);
-      const pageCount = Math.max(1, Math.ceil(rows.length / page));
-      currentPage = Math.min(currentPage, pageCount - 1);
-      const slice = rows.slice(currentPage * page, currentPage * page + page);
+    // ---------- Table ----------
+    function renderTable() {
+      var rows = getRows();
+      var size = state.pageSize;
+      var pageCount = Math.max(1, Math.ceil(rows.length / size));
+      if (state.page >= pageCount) state.page = pageCount - 1;
+      if (state.page < 0) state.page = 0;
+      var slice = rows.slice(state.page * size, state.page * size + size);
 
-      const table = document.getElementById("casesTable");
-      const empty = document.getElementById("emptyState");
+      els.visibleCount.textContent = rows.length;
+      els.paginationInfo.innerHTML = "Page " + (state.page + 1) + " of " + pageCount + " &middot; " + rows.length + " cases";
+      els.prevBtn.disabled = state.page === 0;
+      els.nextBtn.disabled = state.page >= pageCount - 1;
 
-      document.getElementById("tableSummary").textContent =
-        `${rows.length} matching cases · page ${currentPage + 1} of ${pageCount}`;
+      // Filter summary text
+      var bits = [];
+      if (state.search) bits.push('search "' + state.search + '"');
+      if (state.tier !== "all") bits.push("tier " + state.tier);
+      if (state.onlyFindings) bits.push("only with findings");
+      if (state.findings.size && state.findings.size !== FINDING_KEYS.length) {
+        bits.push(state.findings.size + " findings selected");
+      }
+      els.filterSummaryText.textContent = bits.length
+        ? "Filters: " + bits.join(", ") + " — " + rows.length + " match"
+        : "Showing all " + rows.length + " cases";
 
-      document.getElementById("prevBtn").disabled = currentPage === 0;
-      document.getElementById("nextBtn").disabled = currentPage >= pageCount - 1;
+      // Update header sort indicators
+      els.thead.forEach(function (th) {
+        var k = th.getAttribute("data-sort");
+        var arrow = th.querySelector(".sort-arrow");
+        if (!k) return;
+        if (k === state.sort.key) {
+          th.classList.add("active");
+          if (arrow) arrow.textContent = state.sort.dir === "asc" ? "▲" : "▼";
+        } else {
+          th.classList.remove("active");
+          if (arrow) arrow.textContent = "△";
+        }
+      });
 
-      if (!slice.length) {
-        table.innerHTML = "";
-        empty.hidden = false;
+      if (slice.length === 0) {
+        els.casesBody.innerHTML = "";
+        els.emptyState.hidden = false;
         return;
       }
+      els.emptyState.hidden = true;
 
-      empty.hidden = true;
-      table.innerHTML = `
-        <tr>
-          <th>Image</th>
-          <th>Detected findings</th>
-          <th>Tier signal</th>
-          <th>Key metrics</th>
-        </tr>
-        ${slice.map(row => `
-          <tr>
-            <td class="code">${row.image}</td>
-            <td>
-              <div class="finding-list">
-                ${row.findings.length
-                  ? row.findings.map(key => `<span class="finding-pill" style="background:${TIER_COLOR[fullData[0].findings[key].tier]}">${fullData[0].findings[key].name}</span>`).join("")
-                  : '<span class="mini">No detections</span>'}
-              </div>
-            </td>
-            <td>${row.highestTier ? `Tier ${row.highestTier}` : "None"} · ${row.totalFindings} total</td>
-            <td class="mini">CTR ${row.ctr.toFixed(2)} · Basal ${row.basal.toFixed(2)} · Haze ${row.haze.toFixed(2)}</td>
-          </tr>
-        `).join("")}
-      `;
+      var html = "";
+      for (var i = 0; i < slice.length; i++) {
+        var r = slice[i];
+        var open = state.openImage === r.image;
+        var caretSvg = '<svg class="row-caret" viewBox="0 0 10 10"><path fill="currentColor" d="M3 1l5 4-5 4z"/></svg>';
+        var findingsHtml;
+        if (r.count === 0) {
+          findingsHtml = '<span class="badge-clean">No detections</span>';
+        } else {
+          // Sort by tier ascending so critical first
+          var sortedKeys = r.findings.slice().sort(function (a, b) {
+            return r.raw.findings[a].tier - r.raw.findings[b].tier;
+          });
+          findingsHtml = '<div class="findings-cell">' + sortedKeys.map(function (k) {
+            var meta = r.raw.findings[k];
+            return '<span class="badge t' + Number(meta.tier) + '" title="' + escapeHtml(meta.tier_label || "") + '">' + escapeHtml(meta.name) + '</span>';
+          }).join("") + '</div>';
+        }
+        var tierCell = r.highestTier === null
+          ? '<span class="badge-clean">&mdash;</span>'
+          : '<span class="badge outline t' + Number(r.highestTier) + '">Tier ' + Number(r.highestTier) + '</span>';
+
+        html += '<tr class="summary' + (open ? " open" : "") + '" data-image="' + escapeHtml(r.image) + '" tabindex="0" role="button" aria-expanded="' + (open ? "true" : "false") + '">'
+          + '<td>' + caretSvg + '<span class="image-id">' + escapeHtml(r.image) + '</span></td>'
+          + '<td>' + findingsHtml + '</td>'
+          + '<td class="col-tier">' + tierCell + '</td>'
+          + '<td class="col-count num">' + r.count + '</td>'
+          + '</tr>';
+        html += '<tr class="detail' + (open ? " open" : "") + '" data-detail="' + escapeHtml(r.image) + '">'
+          + '<td colspan="4">' + (open ? renderDetail(r.raw) : "") + '</td>'
+          + '</tr>';
+      }
+      els.casesBody.innerHTML = html;
     }
 
-    function render(data) {
-      fullData = data;
-      if (!data.length) {
-        destroyCharts();
-        document.getElementById("error").textContent =
-          "report.json is empty. Run the analyzer first, then serve the results folder.";
-        return;
-      }
+    function renderDetail(row) {
+      var detected = [];
+      var notDetected = [];
+      FINDING_KEYS.forEach(function (k) {
+        var f = row.findings[k];
+        if (!f) return;
+        if (f.detected) detected.push(k); else notDetected.push(k);
+      });
+      // Sort detected by tier ascending
+      detected.sort(function (a, b) { return row.findings[a].tier - row.findings[b].tier; });
 
-      document.getElementById("error").textContent = "";
-      document.getElementById("datasetStamp").textContent = `${data.length} images in the current sample`;
-      document.getElementById("refreshStamp").textContent = `Updated ${new Date().toLocaleTimeString([], {hour: "numeric", minute: "2-digit", second: "2-digit"})}`;
+      var detectedHtml = detected.length
+        ? detected.map(function (k) {
+            var f = row.findings[k];
+            return '<div class="finding-card t' + Number(f.tier) + '">'
+              + '<span class="badge t' + Number(f.tier) + '">Tier ' + Number(f.tier) + '</span>'
+              + '<div>'
+              + '<p class="name">' + escapeHtml(f.name) + '</p>'
+              + '<p class="desc">' + escapeHtml(f.description) + '</p>'
+              + '</div>'
+              + '<div class="action">' + escapeHtml(f.m4_action) + '</div>'
+              + '</div>';
+          }).join("")
+        : '<div class="finding-card"><span class="badge-clean">No detections</span><p class="desc" style="margin:0">No heuristics fired for this image.</p></div>';
 
-      const stats = getStats(data);
-      updateSummaryCards(data, stats);
-      renderCharts(data, stats);
-      renderComplexityTable(data);
+      var metricsKeys = Object.keys(row.metrics);
+      var metricsHtml = '<div class="metrics-grid">' + metricsKeys.map(function (k) {
+        var v = row.metrics[k];
+        var formatted = typeof v === "number" ? (Math.abs(v) >= 100 ? v.toFixed(1) : v.toFixed(4)) : String(v);
+        return '<div class="metric"><span class="k">' + escapeHtml(k) + '</span><span class="v">' + formatted + '</span></div>';
+      }).join("") + '</div>';
 
-      if (!findingFilter.options.length) {
-        populateFindingFilter(data);
-      }
-      renderCasesTable();
+      return '<div class="detail-inner">'
+        + '<div class="detail-section">'
+        + '<h4>Detected findings &amp; M4 action plan</h4>'
+        + detectedHtml
+        + '</div>'
+        + '<div class="detail-section">'
+        + '<h4>Raw metrics</h4>'
+        + metricsHtml
+        + '</div>'
+        + '</div>';
+    }
+
+    // ---------- Events ----------
+    function debounce(fn, ms) {
+      var t;
+      return function () {
+        var args = arguments, ctx = this;
+        clearTimeout(t);
+        t = setTimeout(function () { fn.apply(ctx, args); }, ms);
+      };
+    }
+
+    function bindEvents() {
+      els.searchInput.addEventListener("input", debounce(function (e) {
+        state.search = e.target.value;
+        state.page = 0;
+        renderTable();
+      }, 120));
+
+      els.tierFilter.addEventListener("change", function (e) {
+        state.tier = e.target.value;
+        state.page = 0;
+        renderTable();
+      });
+
+      els.onlyFindings.addEventListener("change", function (e) {
+        state.onlyFindings = e.target.checked;
+        state.page = 0;
+        renderTable();
+      });
+
+      els.pageSize.addEventListener("change", function (e) {
+        state.pageSize = parseInt(e.target.value, 10) || 50;
+        state.page = 0;
+        renderTable();
+      });
+
+      els.prevBtn.addEventListener("click", function () {
+        if (state.page > 0) { state.page -= 1; renderTable(); scrollTableTop(); }
+      });
+      els.nextBtn.addEventListener("click", function () {
+        state.page += 1; renderTable(); scrollTableTop();
+      });
+
+      els.clearFilters.addEventListener("click", function () {
+        state.search = "";
+        state.tier = "all";
+        state.onlyFindings = false;
+        state.findings = new Set();
+        state.page = 0;
+        els.searchInput.value = "";
+        els.tierFilter.value = "all";
+        els.onlyFindings.checked = false;
+        buildFindingMulti();
+        renderTable();
+      });
+
+      // Sort header clicks
+      els.thead.forEach(function (th) {
+        var k = th.getAttribute("data-sort");
+        if (!k) return;
+        th.addEventListener("click", function () {
+          if (state.sort.key === k) {
+            state.sort.dir = state.sort.dir === "asc" ? "desc" : "asc";
+          } else {
+            state.sort.key = k;
+            state.sort.dir = (k === "image") ? "asc" : "desc";
+          }
+          state.page = 0;
+          renderTable();
+        });
+      });
+
+      // Row clicks for expansion (event delegation)
+      els.casesBody.addEventListener("click", function (e) {
+        var tr = e.target.closest("tr.summary");
+        if (!tr) return;
+        toggleRow(tr.getAttribute("data-image"));
+      });
+
+      els.casesBody.addEventListener("keydown", function (e) {
+        var tr = e.target.closest("tr.summary");
+        if (!tr) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          toggleRow(tr.getAttribute("data-image"));
+        }
+      });
+
+      // Multi-select dropdown
+      els.findingMultiBtn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var open = els.findingMulti.classList.toggle("open");
+        els.findingMultiBtn.setAttribute("aria-expanded", open ? "true" : "false");
+      });
+
+      document.addEventListener("click", function (e) {
+        if (!els.findingMulti.contains(e.target)) {
+          els.findingMulti.classList.remove("open");
+          els.findingMultiBtn.setAttribute("aria-expanded", "false");
+        }
+      });
+
+      els.findingMultiPop.addEventListener("click", function (e) {
+        var btn = e.target.closest("button[data-act]");
+        if (btn) {
+          var act = btn.getAttribute("data-act");
+          if (act === "all") {
+            state.findings = new Set();
+          } else if (act === "none") {
+            state.findings = new Set(["__none__"]); // sentinel that won't match
+          }
+          buildFindingMulti();
+          state.page = 0;
+          renderTable();
+          return;
+        }
+      });
+
+      els.findingMultiPop.addEventListener("change", function (e) {
+        if (e.target.tagName !== "INPUT") return;
+        var inputs = els.findingMultiPop.querySelectorAll('input[type="checkbox"]');
+        var selected = new Set();
+        inputs.forEach(function (inp) { if (inp.checked) selected.add(inp.value); });
+        state.findings = (selected.size === FINDING_KEYS.length) ? new Set() : selected;
+        updateFindingMultiSummary();
+        state.page = 0;
+        renderTable();
+      });
+    }
+
+    function toggleRow(image) {
+      state.openImage = (state.openImage === image) ? null : image;
+      renderTable();
+    }
+
+    function scrollTableTop() {
+      var tw = $("tableWrap");
+      if (tw && tw.scrollTo) tw.scrollTo({top: 0, behavior: "smooth"});
+    }
+
+    // ---------- Loading ----------
+    function showError(msg) {
+      els.error.textContent = msg;
+      els.error.classList.add("show");
+    }
+    function clearError() {
+      els.error.textContent = "";
+      els.error.classList.remove("show");
+    }
+
+    function setLive(text) {
+      els.liveText.textContent = text;
+    }
+
+    function renderAll() {
+      var stats = computeStats();
+      renderHero(stats);
+      renderFreqList(stats);
+      renderTable();
     }
 
     async function load() {
       try {
-        const res = await fetch("report.json?t=" + Date.now());
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        render(await res.json());
-      } catch (error) {
-        document.getElementById("error").textContent =
-          "Could not load report.json. Run the analyzer, then serve this folder with python3 server.py.";
+        var res = await fetch("report.json?t=" + Date.now(), {cache: "no-store"});
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        var data = await res.json();
+        if (!Array.isArray(data)) throw new Error("Expected an array in report.json");
+        state.data = data;
+        if (data.length) state.schema = data[0].findings || null;
+        clearError();
+
+        // Build dependent UI on first load
+        if (!els.findingMultiPop.children.length) buildFindingMulti();
+
+        renderAll();
+        var now = new Date();
+        setLive("Updated " + now.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"}));
+      } catch (err) {
+        showError("Could not load report.json. Run the analyzer or serve this folder with python3 server.py.");
+        setLive("Error");
       }
     }
 
-    [searchInput, findingFilter, sortMode, pageSize].forEach(el => {
-      el.addEventListener("input", () => {
-        currentPage = 0;
-        renderCasesTable();
-      });
-      el.addEventListener("change", () => {
-        currentPage = 0;
-        renderCasesTable();
-      });
-    });
-
-    document.getElementById("prevBtn").addEventListener("click", () => {
-      if (currentPage > 0) {
-        currentPage -= 1;
-        renderCasesTable();
-      }
-    });
-
-    document.getElementById("nextBtn").addEventListener("click", () => {
-      const rows = getFilteredRows();
-      const page = Number(pageSize.value);
-      if ((currentPage + 1) * page < rows.length) {
-        currentPage += 1;
-        renderCasesTable();
-      }
-    });
-
+    // Initial bind + first load
+    bindEvents();
     load();
-    setInterval(load, 10000);
+    // Light auto-refresh
+    setInterval(load, 15000);
+  })();
   </script>
 </body>
 </html>

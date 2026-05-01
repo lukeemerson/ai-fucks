@@ -27,10 +27,10 @@ Those metrics are run through threshold-based heuristics to flag findings like:
 - pulmonary edema
 - cardiomegaly
 - pleural effusion
-- consolidation
+- consolidation (diffuse airspace opacity)
+- focal opacity (sharp focal lesion — mutually exclusive with consolidation on `focal_variance`)
 - atelectasis
 - emphysema
-- focal opacity
 
 Each finding is tagged with a high-level urgency tier:
 
@@ -44,28 +44,36 @@ The results are written to `results/report.json` and rendered in a browser dashb
 
 ```text
 analyzer/
-  dashboard.html       Dashboard template copied into results/
+  __init__.py          Package marker
+  dashboard.html       Single source of truth for the dashboard HTML
   features.py          Classical image feature extraction
   m4_findings.py       Finding metadata and tier labels
-  main.py              Batch analyzer entrypoint
-results/
-  dashboard.html       Served demo dashboard
-  report.json          Generated analysis output
-server.py              Local static server for the results dashboard
+  main.py              Batch analyzer entrypoint (python -m analyzer.main)
+  evaluate.py          Confusion matrix + threshold suggestions vs NIH labels
+  tune.py              Joint optimizer for compound-rule cutoffs
+fixtures/
+  seed_report.json     Small sample report shipped with the repo so a fresh
+                       clone can run `python3 server.py` and see a populated
+                       dashboard with no images on disk.
+results/                (gitignored) populated by main.py or by server.py at
+                       startup
+server.py              Local static server with bootstrap + --port flag
+tests/                 pytest suite (run with `pytest`)
+pyproject.toml         Package + dep pins; installs `cxr-analyze`,
+                       `cxr-evaluate`, and `cxr-serve` console scripts
 ```
 
 ## Requirements
 
 - Python 3.12 recommended
-- package dependencies from `analyzer/requirements.txt`
-- a local NIH ChestX-ray14 image folder at `db-test_images/images/`
+- a local NIH ChestX-ray14 image folder at `db-test_images/images/` (only needed for analyzing your own images — the seed fixture lets you demo the dashboard without one)
 
-Install dependencies into a virtual environment:
+Install in editable mode:
 
 ```bash
-python3.12 -m venv analyzer/.venv
-source analyzer/.venv/bin/activate
-python -m pip install -r analyzer/requirements.txt
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
 ```
 
 ## Running The Analyzer
@@ -73,18 +81,16 @@ python -m pip install -r analyzer/requirements.txt
 Analyze a small batch:
 
 ```bash
-source analyzer/.venv/bin/activate
-python analyzer/main.py --n 10
+python -m analyzer.main --n 10
 ```
 
 Append a larger batch to the existing report:
 
 ```bash
-source analyzer/.venv/bin/activate
-python analyzer/main.py --offset 50 --n 200 --append
+python -m analyzer.main --offset 50 --n 200 --append
 ```
 
-What the flags mean:
+Flags:
 
 - `--n`: number of images to process
 - `--offset`: how many alphabetically sorted images to skip
@@ -92,35 +98,60 @@ What the flags mean:
 
 ## Viewing The Dashboard
 
-Start the local server:
+Start the local server (it will bootstrap `results/` from `analyzer/dashboard.html` + `fixtures/seed_report.json` if empty):
 
 ```bash
-python3 server.py
+python3 server.py            # auto-opens http://localhost:8080/dashboard.html
+python3 server.py --port 9090 --no-open
 ```
 
-Then open:
+## Validating Recognition Quality
 
-```text
-http://localhost:8080/dashboard.html
+Without ground truth there is no recognition number. Drop the NIH labels file
+(`Data_Entry_2017_v2020.csv`) into the project root and run:
+
+```bash
+python -m analyzer.evaluate --labels Data_Entry_2017_v2020.csv
+python -m analyzer.evaluate --labels Data_Entry_2017_v2020.csv --suggest
 ```
 
-## Current Demo Snapshot
+The evaluator prints a confusion matrix (TP/FP/FN/TN, precision, recall, F1)
+per finding. With `--suggest` it also reports a Youden's-J–optimal threshold
+for each single-metric finding.
 
-At the time of this README, the included generated report contains:
+Compound findings (`pneumothorax`, `consolidation`) need joint optimization
+across multiple metrics. The `analyzer.tune` module does that automatically
+on an 80/20 train/test split and reports per-rule best cutoffs:
 
-- 250 analyzed images
-- a dashboard optimized for browsing larger batches
-- summary cards, finding-frequency charts, tier distribution, and a searchable case browser
+```bash
+python -m analyzer.tune --labels Data_Entry_2017_v2020.csv
+```
+
+NIH label mapping is documented in `analyzer/evaluate.py:NIH_POSITIVE_LABELS`.
+
+## Tests
+
+```bash
+pytest
+```
+
+The test suite pins thresholds against the seed fixture, so any change to `THRESHOLDS` that flips a detection on the seed metrics fails loudly. If the change was intentional, regenerate the seed and update the fixture:
+
+```bash
+python -m analyzer.main --n 25 && cp results/report.json fixtures/seed_report.json
+```
+
+Only do this when you intentionally want to update the pinned thresholds-vs-metrics fixture.
 
 ## Sharing Notes
 
 If you want to publish or demo this cleanly:
 
-- keep the generated `results/` files so people can open the dashboard immediately
+- the seed fixture in `fixtures/seed_report.json` is what makes the dashboard load on a fresh clone — keep it small (≤25 KB)
 - explain that this is a heuristic prototype, not a diagnostic tool
 - keep the NIH image source separate unless you have the right to redistribute it
 
-A good one-line description is:
+A good one-line description:
 
 > A chest X-ray triage demo that uses explainable pixel heuristics to flag likely findings and map them to high-level urgency tiers.
 

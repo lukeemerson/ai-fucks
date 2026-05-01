@@ -1,13 +1,31 @@
-# Images
+# NIH ChestX-ray14 dataset (downloaded separately, not redistributed here)
 db-test_images/
+Data_Entry_2017_v2020.csv
 
 # Python
 analyzer/.venv/
+.venv/
 __pycache__/
 *.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Build artifacts
+build/
+dist/
+
+# OS files
+.DS_Store
 
 # VS Code
 .vscode/
 
 # Local assistant state
 .claude/worktrees/
+.claude/settings.local.json
+
+# Generated dashboard output
+results/

@@ -5,7 +5,8 @@ addendum), the public API is intentionally small:
 
 * The composition root: :func:`run_experiment`.
 * The v1 factories that wire concrete adapter sets:
-  :func:`build_v1_runner_with_fakes`, :func:`build_v1_runner_sklearn`.
+  :func:`build_v1_runner_with_fakes`, :func:`build_v1_runner_sklearn`,
+  :func:`build_publication_runner_v1`.
 * Every domain type re-exported from :mod:`harness.domain`.
 
 Ports and adapter classes are *not* part of this surface. Consumers should
@@ -17,6 +18,7 @@ from __future__ import annotations
 
 from harness.composition.factories import (
     RunnerBundle,
+    build_publication_runner_v1,
     build_v1_runner_sklearn,
     build_v1_runner_with_fakes,
 )
@@ -64,6 +66,7 @@ __all__ = [
     "Split",
     "ThresholdConfig",
     "ThresholdSet",
+    "build_publication_runner_v1",
     "build_v1_runner_sklearn",
     "build_v1_runner_with_fakes",
     "run_experiment",

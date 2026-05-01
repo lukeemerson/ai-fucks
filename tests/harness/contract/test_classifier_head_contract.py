@@ -11,6 +11,7 @@ import pytest
 from numpy.typing import NDArray
 
 from harness.adapters.fakes.classifier_head import LinearFakeClassifierHead
+from harness.adapters.sklearn.head import SklearnGradientBoostingHead
 from harness.domain.errors import ContractViolation
 from harness.ports.classifier_head import ClassifierHeadPort
 
@@ -100,6 +101,36 @@ class TestLinearFakeClassifierHeadContract(ClassifierHeadPortContract):
         class _Factory:
             def __call__(self) -> ClassifierHeadPort:
                 return LinearFakeClassifierHead(n_labels=n_labels)
+
+        # Return a zero-arg callable mimicking a class.
+        return _Factory()  # type: ignore[return-value]  # reason: factory protocol shim
+
+
+# Fast fit budget for the GBT contract subclass. The contract assertions are
+# shape / dtype / determinism / unit-interval -- none require the production
+# default (200) iterations. Keeping this low keeps the default suite under
+# its < 5s wall-clock budget.
+_GBT_CONTRACT_MAX_ITER: int = 15
+
+
+class TestSklearnGradientBoostingHeadContract(ClassifierHeadPortContract):
+    @pytest.fixture
+    def adapter(self) -> ClassifierHeadPort:
+        return SklearnGradientBoostingHead(
+            n_labels=self.n_labels, seed=0, max_iter=_GBT_CONTRACT_MAX_ITER
+        )
+
+    @pytest.fixture
+    def adapter_factory(self) -> type[ClassifierHeadPort]:
+        n_labels = self.n_labels
+
+        class _Factory:
+            def __call__(self) -> ClassifierHeadPort:
+                return SklearnGradientBoostingHead(
+                    n_labels=n_labels,
+                    seed=0,
+                    max_iter=_GBT_CONTRACT_MAX_ITER,
+                )
 
         # Return a zero-arg callable mimicking a class.
         return _Factory()  # type: ignore[return-value]  # reason: factory protocol shim

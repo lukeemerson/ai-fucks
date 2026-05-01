@@ -208,6 +208,17 @@ class NIHDataset:
         """Return the canonical NIH-14 label vocabulary."""
         return self._dataset.label_names
 
+    @property
+    def images_dir(self) -> Path:
+        """Return the resolved absolute directory containing the NIH PNGs.
+
+        Public read-only accessor for composition-layer wrappers (e.g. the
+        publication pipeline's decoding wrapper) that need to construct a
+        sibling :class:`NIHImageLoader` against the same image root without
+        reaching into ``self._config``.
+        """
+        return self._config.images_dir
+
     # -------------------------------------------------------------- private
     def _filter_records(
         self, records: tuple[NIHRecord, ...]

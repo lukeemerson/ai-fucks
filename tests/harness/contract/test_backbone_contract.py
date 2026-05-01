@@ -102,3 +102,38 @@ class TestIdentityFakeBackboneContract(BackbonePortContract):
         feats = backbone.extract(images)
         assert feats.shape == (1, 4)
         np.testing.assert_array_equal(feats[0], np.array([0.1, 0.2, 0.3, 0.4], dtype=np.float32))
+
+
+# ---------------------------------------------------------------------------
+# TorchVision adapters (torch-marked; excluded from default suite).
+#
+# These run the real torchvision networks with random initialization
+# (``weights=None``) so they are network-free but still exercise the full
+# tensor-conversion + forward pass.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.torch
+class TestTorchVisionResNet50BackboneContract(BackbonePortContract):
+    image_h = 8
+    image_w = 8
+    image_c = 1
+
+    @pytest.fixture
+    def adapter(self) -> BackbonePort:
+        from harness.adapters.torch.backbone import TorchVisionResNet50Backbone
+
+        return TorchVisionResNet50Backbone(seed=0, weights=None, device="cpu")
+
+
+@pytest.mark.torch
+class TestTorchVisionDenseNet121BackboneContract(BackbonePortContract):
+    image_h = 8
+    image_w = 8
+    image_c = 1
+
+    @pytest.fixture
+    def adapter(self) -> BackbonePort:
+        from harness.adapters.torch.backbone import TorchVisionDenseNet121Backbone
+
+        return TorchVisionDenseNet121Backbone(seed=0, weights=None, device="cpu")

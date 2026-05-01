@@ -4,9 +4,11 @@ A lightweight chest X-ray demo that uses hand-built grayscale heuristics to surf
 
 This project is intentionally simple:
 
-- no deep learning model weights
-- no end-to-end image model
-- no claim of clinical validity
+no deep learning model weights
+
+no end-to-end image model
+
+no claim of clinical validity
 
 The point is to show a clear, explainable prototype that maps image-derived features to findings and high-level urgency tiers, complete with differential diagnosis reasoning and probability-based confidence levels.
 
@@ -14,32 +16,32 @@ The point is to show a clear, explainable prototype that maps image-derived feat
 
 For each PNG image, the analyzer extracts 14 classical image features:
 
-| Metric | What it captures |
-|---|---|
-| `ctr` | Cardiothoracic ratio estimate |
-| `ptx_left/right_mean` | Peripheral lucency (mean intensity) |
-| `ptx_left/right_std` | Peripheral lucency (texture variance) |
+| Metric                        | What it captures                             |
+| ----------------------------- | -------------------------------------------- |
+| `ctr`                         | Cardiothoracic ratio estimate                |
+| `ptx_left/right_mean`         | Peripheral lucency (mean intensity)          |
+| `ptx_left/right_std`          | Peripheral lucency (texture variance)        |
 | `ptx_left/right_edge_density` | Vascular marking density via Sobel magnitude |
-| `basal_opacity` | Lower-zone opacification |
-| `bilateral_haze` | Mid-zone bilateral haziness |
-| `diaphragm_pos` | Diaphragm dome position (relative row) |
-| `diaphragm_flatness` | Std of dome position across 5 column samples |
-| `focal_variance` | Max local variance — focal opacity signature |
-| `horiz_band` | Full-lung horizontal Sobel response |
-| `lower_horiz_band` | Bibasal Sobel response (rows 55–80%) |
+| `basal_opacity`               | Lower-zone opacification                     |
+| `bilateral_haze`              | Mid-zone bilateral haziness                  |
+| `diaphragm_pos`               | Diaphragm dome position (relative row)       |
+| `diaphragm_flatness`          | Std of dome position across 5 column samples |
+| `focal_variance`              | Max local variance — focal opacity signature |
+| `horiz_band`                  | Full-lung horizontal Sobel response          |
+| `lower_horiz_band`            | Bibasal Sobel response (rows 55–80%)         |
 
 Those metrics are fed through per-finding logistic regression calibrators to produce probabilities for:
 
-| Finding | Tier |
-|---|---|
-| Pneumothorax | 1 — MUST recognize |
-| Pulmonary Edema | 1 — MUST recognize |
-| Cardiomegaly | 2 — Should recognize |
-| Pleural Effusion | 2 — Should recognize |
+| Finding                            | Tier                 |
+| ---------------------------------- | -------------------- |
+| Pneumothorax                       | 1 — MUST recognize   |
+| Pulmonary Edema                    | 1 — MUST recognize   |
+| Cardiomegaly                       | 2 — Should recognize |
+| Pleural Effusion                   | 2 — Should recognize |
 | Possible Consolidation / Pneumonia | 2 — Should recognize |
-| Atelectasis | 2 — Should recognize |
-| Emphysema / Hyperinflation | 3 — Should know |
-| Focal Opacity / Nodule | 3 — Should know |
+| Atelectasis                        | 2 — Should recognize |
+| Emphysema / Hyperinflation         | 3 — Should know      |
+| Focal Opacity / Nodule             | 3 — Should know      |
 
 Detections are returned as a `ddx` array sorted by (tier, probability), with confidence labels (high/medium/low) and ranked differential diagnosis considerations per finding.
 
@@ -130,6 +132,7 @@ python -m analyzer.train \
 ```
 
 This writes:
+
 - `models/cxr_profile.json` — saved per-finding calibration profile
 - `models/cxr_profile.train_report.json` — predictions on the train split
 - `models/cxr_profile.val_report.json` — predictions on the validation split

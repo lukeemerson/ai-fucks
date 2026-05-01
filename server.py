@@ -18,6 +18,7 @@ ROOT = Path(__file__).parent
 RESULTS = ROOT / "results"
 DASHBOARD = ROOT / "analyzer" / "dashboard.html"
 SEED = ROOT / "fixtures" / "seed_report.json"
+IMAGES_SRC = ROOT / "db-test_images" / "images"
 
 
 def bootstrap() -> None:
@@ -31,6 +32,14 @@ def bootstrap() -> None:
             raise SystemExit(f"No report.json and no seed at {SEED}")
         shutil.copy(SEED, RESULTS / "report.json")
         print(f"Seeded results/report.json from {SEED.relative_to(ROOT)}")
+
+    images_link = RESULTS / "images"
+    if IMAGES_SRC.is_dir() and not images_link.exists():
+        try:
+            images_link.symlink_to(IMAGES_SRC.resolve(), target_is_directory=True)
+            print(f"Linked results/images -> {IMAGES_SRC.relative_to(ROOT)}")
+        except OSError as e:
+            print(f"Could not symlink images dir ({e}); image previews will 404.")
 
 
 class _Server(socketserver.TCPServer):

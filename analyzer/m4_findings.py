@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+
 @dataclass
 class Finding:
     name: str
@@ -7,6 +8,7 @@ class Finding:
     tier_label: str
     description: str
     m4_action: str
+
 
 FINDINGS = {
     "cardiomegaly": Finding(
@@ -21,14 +23,20 @@ FINDINGS = {
         tier=1,
         tier_label="MUST recognize",
         description="Peripheral lucency with absent lung markings",
-        m4_action="Check tracheal deviation, breath sounds; if tension → needle decompression 2nd ICS MCL; order stat CXR/CT",
+        m4_action=(
+            "Check tracheal deviation, breath sounds; if tension → "
+            "needle decompression 2nd ICS MCL; order stat CXR/CT"
+        ),
     ),
     "pleural_effusion": Finding(
         name="Pleural Effusion",
         tier=2,
         tier_label="Should recognize",
         description="Basal opacification with meniscus / blunted costophrenic angle",
-        m4_action="Grade size; consider thoracentesis if large/symptomatic; work up exudate vs transudate (Light's criteria)",
+        m4_action=(
+            "Grade size; consider thoracentesis if large/symptomatic; "
+            "work up exudate vs transudate (Light's criteria)"
+        ),
     ),
     "pulmonary_edema": Finding(
         name="Pulmonary Edema",
@@ -49,7 +57,9 @@ FINDINGS = {
         tier=2,
         tier_label="Should recognize",
         description="Linear or lobar opacity with volume loss / tracheal shift",
-        m4_action="Encourage deep breathing/incentive spirometry; rule out obstructing lesion if lobar; chest PT",
+        m4_action=(
+            "Encourage deep breathing/incentive spirometry; rule out obstructing lesion if lobar; chest PT"
+        ),
     ),
     "emphysema": Finding(
         name="Emphysema / Hyperinflation",
@@ -70,7 +80,12 @@ FINDINGS = {
 TIER_COLORS = {1: "\033[91m", 2: "\033[93m", 3: "\033[96m"}
 RESET = "\033[0m"
 
+
 def tier_badge(tier: int) -> str:
     color = TIER_COLORS.get(tier, "")
-    label = {1: "Tier 1 ▲ MUST RECOGNIZE", 2: "Tier 2 ● Should Recognize", 3: "Tier 3 ○ Should Know"}.get(tier, "")
+    label = {
+        1: "Tier 1 ▲ MUST RECOGNIZE",
+        2: "Tier 2 ● Should Recognize",
+        3: "Tier 3 ○ Should Know",
+    }.get(tier, "")
     return f"{color}[{label}]{RESET}"

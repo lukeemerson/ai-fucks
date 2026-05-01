@@ -2,7 +2,8 @@
 
 Tracking doc for the path from current state → published paper. Check items as you go; add notes inline.
 
-**Target venues (in submission order):** arXiv preprint → MIDL or ML4H workshop → JMIR AI / Scientific Reports.
+**Budget:** $0. Free venues only, free compute only, no APCs, no paid IRB.
+**Target venues (in submission order):** arXiv preprint → MIDL workshop (PMLR, free) → ML4H @ NeurIPS (free) → TMLR (peer-reviewed, OpenReview-hosted, no APC) → MICCAI workshops.
 **Honest macro-F1 trajectory:** 0.097 (current rule-based) → 0.30+ (with pretrained backbone) → publication-grade.
 
 ---
@@ -11,7 +12,7 @@ Tracking doc for the path from current state → published paper. Check items as
 
 - [x] Threshold tuning study against NIH labels (macro-F1 0.047 → 0.097) — `analyzer/`
 - [x] Calibrated GBT pipeline replacing logistic regression (commit `5e89b8b`)
-- [x] Publication-grade experiment harness with ports & adapters (PR #2, branch `pate/harness-publication-ready`)
+- [x] Publication-grade experiment harness with ports & adapters (PR #2 **merged** as `965086d`)
   - 9 ports, 9 fakes, 4 sklearn real adapters, filesystem store, composition root
   - 267 tests passing, ruff + mypy strict clean
   - `ARCHITECTURE.md` + §13 v1 surface documented
@@ -38,7 +39,8 @@ Tracking doc for the path from current state → published paper. Check items as
   - [ ] `TorchVisionResNet50Backbone` (ImageNet weights from torchvision)
   - [ ] `TorchVisionDenseNet121Backbone` (ImageNet weights)
   - [ ] `RadImageNetResNet50Backbone` (RadImageNet weights — verify CC BY 4.0 attribution)
-- [ ] GPU-aware batching with `torch.cuda.is_available()` fallback to CPU
+- [ ] **Apple Silicon MPS support** — use `torch.device("mps")` if available; works on this Mac, costs $0
+- [ ] GPU-aware batching: try `mps` → `cuda` → `cpu`, fallback chain
 - [ ] Deterministic mode: `torch.manual_seed`, `torch.backends.cudnn.deterministic=True`
 - [ ] Eval-only (`model.eval()` + `torch.no_grad()`); no training in v1
 - [ ] Mark torch tests with `@pytest.mark.torch`; default test run skips them
@@ -69,9 +71,14 @@ Each ablation is a separate run with one variable swapped:
 - [ ] Per-label AUROC + 95% CI via bootstrap (already in `BootstrapMetrics`)
 - [ ] Calibration reliability diagrams (per-class)
 - [ ] At least 5 papers cited as direct comparisons (see Reading List below)
-- [ ] **arXiv preprint first** — citable prior art before journal submission
-- [ ] Submission target picks (in priority order): MIDL workshop, ML4H, JMIR AI, Scientific Reports
-- [ ] Required ethics statement: "This study used publicly available, de-identified data and was therefore exempt from IRB review under [exemption letter from §B below]."
+- [ ] **arXiv preprint first** — citable prior art before journal submission ($0)
+- [ ] Submission targets (free only, in priority order):
+  - [ ] arXiv preprint
+  - [ ] MIDL workshop (PMLR proceedings, no APC, accepts indie authors)
+  - [ ] ML4H @ NeurIPS workshop (free submission, OpenReview-hosted)
+  - [ ] TMLR (Transactions on Machine Learning Research — peer-reviewed, no APC, growing reputation)
+  - [ ] MICCAI workshops (specific workshops are free; main conference is paid, skip)
+- [ ] **Required ethics statement (free path):** "This study used publicly available, de-identified data from the NIH ChestX-ray14 dataset (Wang et al., 2017). Per the dataset terms of use and consistent with US Common Rule §46.104(d)(4), secondary analysis of publicly available, de-identified data does not constitute human subjects research and was therefore exempt from IRB review."
 - [ ] Code + frozen weights URL in paper (link to GitHub repo + release tag)
 - [ ] Model card + data card published alongside
 
@@ -80,21 +87,21 @@ Each ablation is a separate run with one variable swapped:
 ## 🟡 Parallel Tracks (start now, don't wait)
 
 ### A. PR Review
-- [ ] PR #2 reviewed and merged into `main`
-- [ ] Tag release `v0.5.0-harness` once merged
+- [x] PR #2 reviewed and merged into `main` (`965086d`)
+- [ ] Tag release `v0.5.0-harness`
 
-### B. IRB Exemption Letter (~$300, half day)
-- [ ] Pick provider (WCG or Advarra)
-- [ ] Submit exemption application: "secondary analysis of NIH ChestX-ray14 (publicly available, de-identified)"
-- [ ] Receive letter — keep PDF in `harness/docs/IRB/`
-- [ ] Reference number ready for journal submission ethics statement
+### B. IRB — Self-Attestation Path ($0)
+The $300 commercial IRB letter (WCG/Advarra) is **not required** for free venues:
+- arXiv has no IRB requirement.
+- MIDL, ML4H, TMLR, MICCAI workshops do not require an exemption letter for secondary analysis of public de-identified data — a self-attestation in the ethics statement is accepted.
+- Strategy:
+  - [ ] Use the ethics-statement language in §5 above (cites Common Rule §46.104(d)(4)).
+  - [ ] If a reviewer ever pushes back, **first** point to the dataset's own terms ("free for research and educational purposes") and the standard university IRB determinations (UW, UConn, Berkeley) that classify this work as not-human-subjects-research.
+  - [ ] Backup option (still free): some universities will issue a courtesy "not human subjects" determination for unaffiliated researchers using their public datasets — ask via the dataset provider's contact email.
+  - [ ] Only spend money on a commercial IRB if a target journal explicitly demands a letter AFTER initial submission. Don't pre-pay.
 
-### C. PhysioNet Credentialing — only if MIMIC-CXR gets added later
-- [ ] Skip for v1 paper (NIH alone is enough)
-- [ ] If pursuing v1.1: register on CITI under "MIT Affiliates"
-- [ ] Complete "Data or Specimens Only Research" course (~2 hrs, free)
-- [ ] Find a reference contact (this is the real bottleneck)
-- [ ] Submit credentialing app on physionet.org
+### C. PhysioNet Credentialing — skip
+- [x] Skip for v1 paper. NIH alone is enough; credentialing is free but takes 1–2 weeks and needs a reference contact.
 
 ### D. Reading List — papers to cite
 - [ ] Cohen et al. 2022, *TorchXRayVision* (MIDL/PMLR) — your primary baseline
@@ -105,7 +112,16 @@ Each ablation is a separate run with one variable swapped:
 - [ ] Fan & Lin, *A Study on Threshold Selection for Multi-label Classification* (NTU) — for SCut threshold work
 - [ ] CXR-LT 2024 MICCAI Challenge overview (arXiv 2506.07984) — recent benchmark
 
-### E. Legal / Licensing Hygiene
+### E. Free Compute Plan ($0)
+ResNet50 inference on ~112k NIH images is feature-extraction, one-pass-and-cache. Doable for free:
+- [ ] **Local first:** Apple Silicon MPS via `torch.device("mps")`. M-series Macs run ResNet inference at usable throughput; ~112k images at ~50ms/image ≈ 1.5 hrs single-pass. Cache features to disk.
+- [ ] **Kaggle Notebooks** (free GPU: T4 or P100, 30 hrs/week). Best free GPU tier; upload a small image subset or stream from Kaggle's NIH mirror.
+- [ ] **Google Colab free tier** (T4, ~12 hr sessions, can disconnect). Good fallback.
+- [ ] **Lightning AI Studios** (free tier with periodic GPU credits).
+- [ ] Cache extracted features as `.npy` files; never re-run the backbone unless backbone changes.
+- [ ] All ablations downstream of feature extraction (head, calibrator, threshold) run on CPU in seconds.
+
+### F. Legal / Licensing Hygiene
 - [ ] Confirm RadImageNet attribution requirements before using their weights
 - [ ] Document NIH attribution in the paper (link to NIH ChestX-ray14 download + cite Wang 2017)
 - [ ] Decide commercial future: if yes, retrain final weights on NIH + RadImageNet only (skip MIMIC/CheXpert backbones)
@@ -148,3 +164,4 @@ _(append-only; date each entry)_
 - **2026-05-01:** Decided to use NIH ChestX-ray14 only for v1 paper. Commercial-safe + no credentialing needed. RadImageNet (CC BY 4.0) acceptable for backbone.
 - **2026-05-01:** Decided against torch in `harness/` core; behind `[experiment]` extra so test suite stays fast.
 - **2026-05-01:** Per-class learned thresholds via OOF PR-sweep + shrinkage to global pooled anchor + clamps is the methodological contribution.
+- **2026-05-01:** Harness PR #2 merged. Tracking checklist updated to $0 budget: dropped paid IRB letter (use self-attestation citing Common Rule §46.104(d)(4)), dropped APC journals (JMIR AI / Scientific Reports / PLOS One), targeting free venues only (arXiv → MIDL → ML4H → TMLR → MICCAI workshops). Compute plan is local MPS + Kaggle/Colab free tiers.

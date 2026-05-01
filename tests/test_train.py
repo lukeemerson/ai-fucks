@@ -117,6 +117,7 @@ def test_probability_threshold_helper_maximizes_f1() -> None:
     assert threshold == pytest.approx(0.50, abs=1e-9)
 
 
+@pytest.mark.slow
 def test_train_profile_writes_profile_and_probability_reports(tmp_path: Path) -> None:
     report_path, labels_path = _write_synthetic_inputs(tmp_path)
     out_profile = tmp_path / "models" / "cxr_profile.json"

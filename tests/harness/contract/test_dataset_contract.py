@@ -7,9 +7,12 @@ subclass and supply an ``adapter`` fixture.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from harness.adapters.fakes.dataset import InMemoryFakeDataset
+from harness.adapters.fs.nih_dataset import NIHDataset, NIHDatasetConfig
 from harness.domain.errors import HarnessError
 from harness.domain.types import Dataset, Sample
 from harness.ports.dataset import DatasetPort
@@ -86,3 +89,20 @@ class TestInMemoryFakeDatasetContract(DatasetPortContract):
             label_names=("a", "b", "c"),
             samples=samples,
         )
+
+
+class TestNIHDatasetContract(DatasetPortContract):
+    """Contract suite against the synthetic NIH fixture."""
+
+    @pytest.fixture
+    def adapter(self) -> DatasetPort:
+        fixture_root = Path(__file__).parent.parent / "fixtures" / "nih"
+        config = NIHDatasetConfig(
+            csv_path=fixture_root / "Data_Entry_synthetic.csv",
+            images_dir=fixture_root / "images",
+            image_size=(8, 8),
+            cache_size=4,
+            disk_cache_dir=None,
+            strict_missing_images=True,
+        )
+        return NIHDataset(config)

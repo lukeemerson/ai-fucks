@@ -6,6 +6,19 @@ from PIL import Image
 from scipy.ndimage import sobel, uniform_filter
 
 IMG_SIZE = 512  # downsample to this for speed; NIH originals are 1024x1024
+METRIC_SCHEMA_VERSION = "cxr-metrics-v1"
+METRIC_KEYS = (
+    "ctr",
+    "ptx_left_mean",
+    "ptx_right_mean",
+    "ptx_left_std",
+    "ptx_right_std",
+    "basal_opacity",
+    "bilateral_haze",
+    "diaphragm_pos",
+    "focal_variance",
+    "horiz_band",
+)
 
 # Float32 2-D pixel matrix in [0, 1]. We only ever read shape + element-wise
 # numpy ops on these, so a generic float ndarray is enough; no dtype-narrow
@@ -70,10 +83,14 @@ def _diaphragm_position(arr: FloatArray) -> float:
     """Relative row position of diaphragm dome (0=top, 1=bottom).
     Hyperinflation pushes the dome low (>0.72)."""
     h, w = arr.shape
-    lower = arr[int(h * 0.45) :, int(w * 0.1) : int(w * 0.9)]
+    y0, y1 = int(h * 0.45), int(h * 0.90)
+    lower = arr[y0:y1, int(w * 0.1) : int(w * 0.9)]
     grad = np.abs(np.diff(lower.mean(axis=1)))
     peak_local = int(np.argmax(grad))
-    return (int(h * 0.45) + peak_local) / float(h)
+    # Exclude the bottom 10% of the frame so the detector does not lock onto
+    # the image border / crop edge, which made normal films look maximally
+    # hyperinflated.
+    return (y0 + peak_local) / float(h)
 
 
 def _focal_variance(arr: FloatArray) -> float:
@@ -97,14 +114,14 @@ def extract_features(path: str) -> dict[str, float]:
     arr = load_matrix(path)
     ptx = _peripheral_lucency(arr)
     return {
-        "ctr": _cardiothoracic_ratio(arr),
-        "ptx_left_mean": ptx["left_mean"],
-        "ptx_right_mean": ptx["right_mean"],
-        "ptx_left_std": ptx["left_std"],
-        "ptx_right_std": ptx["right_std"],
-        "basal_opacity": _basal_opacification(arr),
-        "bilateral_haze": _bilateral_haziness(arr),
-        "diaphragm_pos": _diaphragm_position(arr),
-        "focal_variance": _focal_variance(arr),
-        "horiz_band": _horizontal_band_response(arr),
+        METRIC_KEYS[0]: _cardiothoracic_ratio(arr),
+        METRIC_KEYS[1]: ptx["left_mean"],
+        METRIC_KEYS[2]: ptx["right_mean"],
+        METRIC_KEYS[3]: ptx["left_std"],
+        METRIC_KEYS[4]: ptx["right_std"],
+        METRIC_KEYS[5]: _basal_opacification(arr),
+        METRIC_KEYS[6]: _bilateral_haziness(arr),
+        METRIC_KEYS[7]: _diaphragm_position(arr),
+        METRIC_KEYS[8]: _focal_variance(arr),
+        METRIC_KEYS[9]: _horizontal_band_response(arr),
     }

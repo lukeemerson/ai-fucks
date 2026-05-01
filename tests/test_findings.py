@@ -37,23 +37,21 @@ def test_seed_findings_match_current_thresholds() -> None:
         )
 
 
-def test_consolidation_and_focal_opacity_can_coexist() -> None:
-    """Both findings can fire on the same image after the threshold tuning.
+def test_consolidation_and_focal_opacity_are_now_separated() -> None:
+    """The conservative recalibration makes diffuse and focal calls exclusive.
 
-    A diffuse airspace process (consolidation) and a focal lesion
-    (focal_opacity) are not mutually exclusive clinically, and the tuned
-    cutoffs let them overlap on focal_variance ∈ [0.0122, 0.0200). The
-    fixture must contain at least one record where both fire so this fact
-    stays exercised.
+    Consolidation now requires ``focal_variance < 0.0200`` while
+    focal_opacity requires ``focal_variance >= 0.0200``. Keeping that split
+    explicit protects the current more-conservative dashboard behavior.
     """
     fired_both = [
         r["image"]
         for r in _records()
         if r["findings"]["consolidation"]["detected"] and r["findings"]["focal_opacity"]["detected"]
     ]
-    assert fired_both, (
-        "Seed fixture should include at least one record where both "
-        "consolidation and focal_opacity fire — they are no longer mutually exclusive."
+    assert not fired_both, (
+        "Consolidation and focal_opacity should be mutually exclusive under "
+        "the current threshold split."
     )
 
 

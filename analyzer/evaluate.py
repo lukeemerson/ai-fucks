@@ -1,4 +1,4 @@
-"""Evaluate heuristic detections against NIH ChestX-ray14 labels.
+"""Evaluate threshold- or profile-based detections against NIH ChestX-ray14 labels.
 
 Usage:
     python -m analyzer.evaluate --labels Data_Entry_2017_v2020.csv
@@ -7,7 +7,8 @@ Usage:
 The labels CSV is the file shipped with the NIH ChestX-ray14 release. Each row
 has an `Image Index` (filename) and `Finding Labels` (pipe-separated NIH
 labels). Only images present in BOTH the report.json and the labels file are
-scored.
+scored. The report may come from the legacy threshold fallback or from a saved
+calibration profile; evaluation only depends on `findings.<key>.detected`.
 
 Threshold suggestions use Youden's J (TPR - FPR) on the primary metric for
 each single-metric finding. Compound findings (pneumothorax, consolidation)
@@ -24,7 +25,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from analyzer.main import THRESHOLDS
+from analyzer.m4_findings import FINDINGS
 
 # Mapping from our heuristic key to NIH ChestX-ray14 labels that count as positive.
 # A few mappings are deliberately set-valued: NIH labels Consolidation and Pneumonia
@@ -103,12 +104,12 @@ def confusion_matrix(records: Iterable[dict[str, Any]], labels: dict[str, set[st
     for both `pleural_effusion` and `focal_opacity` in the same row. Don't sum
     across findings.
     """
-    out = {key: Confusion() for key in THRESHOLDS}
+    out = {key: Confusion() for key in FINDINGS}
     for r in records:
         nih = labels.get(r["image"])
         if nih is None:
             continue
-        for key in THRESHOLDS:
+        for key in FINDINGS:
             pred = r["findings"][key]["detected"]
             actual = is_positive(nih, key)
             cm = out[key]

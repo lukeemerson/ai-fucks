@@ -5,7 +5,7 @@ A lightweight chest X-ray demo that uses hand-built grayscale heuristics to surf
 This project is intentionally simple:
 
 - no deep learning model weights
-- no training pipeline
+- no end-to-end image model
 - no claim of clinical validity
 
 The point is to show a clear, explainable prototype that maps image-derived features to findings and high-level urgency tiers.
@@ -48,19 +48,25 @@ analyzer/
   dashboard.html       Single source of truth for the dashboard HTML
   features.py          Classical image feature extraction
   m4_findings.py       Finding metadata and tier labels
-  main.py              Batch analyzer entrypoint (python -m analyzer.main)
+  main.py              Batch analyzer entrypoint; can use fallback thresholds
+                       or a saved calibration profile
+  train.py             Train per-finding calibrators from labeled report data
+  profile.py           Persisted profile loading, validation, and scoring
+  predict.py           Shared report-building + fallback detection helpers
   evaluate.py          Confusion matrix + threshold suggestions vs NIH labels
   tune.py              Joint optimizer for compound-rule cutoffs
 fixtures/
   seed_report.json     Small sample report shipped with the repo so a fresh
                        clone can run `python3 server.py` and see a populated
                        dashboard with no images on disk.
+models/                (gitignored) saved calibration profiles + split reports
 results/                (gitignored) populated by main.py or by server.py at
                        startup
 server.py              Local static server with bootstrap + --port flag
 tests/                 pytest suite (run with `pytest`)
 pyproject.toml         Package + dep pins; installs `cxr-analyze`,
-                       `cxr-evaluate`, and `cxr-serve` console scripts
+                       `cxr-evaluate`, `cxr-train`, and `cxr-serve`
+                       console scripts
 ```
 
 ## Requirements
@@ -82,6 +88,13 @@ Analyze a small batch:
 
 ```bash
 python -m analyzer.main --n 10
+```
+
+Analyze with a saved calibration profile:
+
+```bash
+python -m analyzer.main --profile models/cxr_profile.json --n 10
+python -m analyzer.main --profile models/cxr_profile.json --image /path/to/new_xray.png
 ```
 
 Append a larger batch to the existing report:
@@ -128,6 +141,71 @@ python -m analyzer.tune --labels Data_Entry_2017_v2020.csv
 ```
 
 NIH label mapping is documented in `analyzer/evaluate.py:NIH_POSITIVE_LABELS`.
+
+## Training A Calibration Profile
+
+The recommended path for generalizing to new X-rays is:
+
+1. extract handcrafted metrics from a labeled image set
+2. train a persisted calibration profile on those metrics
+3. evaluate on held-out images
+4. load that saved profile later for new X-rays
+
+Train a profile from a labeled report:
+
+```bash
+python -m analyzer.train \
+  --labels Data_Entry_2017_v2020.csv \
+  --report results/report.json \
+  --out-profile models/cxr_profile.json
+```
+
+That command writes:
+
+- `models/cxr_profile.json`: the saved per-finding calibration profile
+- `models/cxr_profile.train_report.json`: profile predictions on the train split
+- `models/cxr_profile.val_report.json`: profile predictions on the validation split
+- `models/cxr_profile.test_report.json`: profile predictions on the held-out test split
+
+Evaluate the held-out test split with:
+
+```bash
+python -m analyzer.evaluate \
+  --labels Data_Entry_2017_v2020.csv \
+  --report models/cxr_profile.test_report.json
+```
+
+## Strategy For Refinement
+
+Treat this repo as a feature-engineering plus calibration loop, not a
+threshold-tweaking demo.
+
+The three important layers are:
+
+- `analyzer/features.py`: handcrafted image metrics
+- `analyzer/train.py`: per-finding calibrators trained from labeled data
+- `analyzer/main.py`: inference on new X-rays using a saved profile
+
+The main workflow going forward is:
+
+1. regenerate or extend `results/report.json` on a labeled image set
+2. train a profile with `analyzer.train`
+3. evaluate the held-out test report with `analyzer.evaluate`
+4. inspect weak findings and their false positives / false negatives
+5. improve the underlying feature functions in `analyzer/features.py`
+6. retrain and compare held-out metrics again
+
+Some practical rules:
+
+- if a finding is weak, suspect the feature definition before the classifier
+- judge progress from held-out evaluation, not from the dashboard alone
+- choose operating thresholds from validation data, not test data
+- keep the saved profile path (`--profile`) as the default inference mode
+- use threshold fallback mode only for backward compatibility or quick demos
+
+The long-term goal is to make each feature in `analyzer/features.py` separate
+normal from abnormal films more cleanly. Once that improves, the persisted
+profile workflow should generalize better to unseen X-rays.
 
 ## Tests
 

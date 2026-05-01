@@ -13,6 +13,7 @@ from analyzer.features import (
     _basal_opacification,
     _bilateral_haziness,
     _cardiothoracic_ratio,
+    _diaphragm_position,
     _focal_variance,
     _peripheral_lucency,
 )
@@ -98,3 +99,20 @@ def test_focal_variance_responds_to_bright_spot() -> None:
 
 def test_focal_variance_low_for_uniform() -> None:
     assert _focal_variance(_blank(0.40)) < 0.005
+
+
+def test_diaphragm_position_ignores_bottom_frame_edge() -> None:
+    """A bright crop edge at the bottom must not look like a maximally low dome."""
+    arr = _blank(0.20)
+    arr[int(IMG_SIZE * 0.72) : int(IMG_SIZE * 0.73), :] = 0.95
+    arr[int(IMG_SIZE * 0.98) :, :] = 1.00
+    pos = _diaphragm_position(arr)
+    assert pos == pytest.approx(0.72, abs=0.03)
+
+
+def test_diaphragm_position_increases_when_dome_is_lower() -> None:
+    upper = _blank(0.20)
+    lower = _blank(0.20)
+    upper[int(IMG_SIZE * 0.62) : int(IMG_SIZE * 0.63), :] = 0.95
+    lower[int(IMG_SIZE * 0.78) : int(IMG_SIZE * 0.79), :] = 0.95
+    assert _diaphragm_position(lower) > _diaphragm_position(upper)

@@ -11,6 +11,7 @@ dependencies = [
     "numpy>=1.26,<3",
     "Pillow>=10.0,<12",
     "scipy>=1.11,<2",
+    "scikit-learn>=1.5,<2",
 ]
 
 [project.optional-dependencies]
@@ -23,6 +24,7 @@ dev = [
 [project.scripts]
 cxr-analyze  = "analyzer.main:main"
 cxr-evaluate = "analyzer.evaluate:main"
+cxr-train    = "analyzer.train:main"
 cxr-serve    = "server:main"
 
 [tool.setuptools]
@@ -49,5 +51,5 @@ strict = true
 warn_unused_ignores = true
 
 [[tool.mypy.overrides]]
-module = ["scipy.*"]
+module = ["scipy.*", "sklearn.*"]
 ignore_missing_imports = true

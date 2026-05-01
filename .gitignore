@@ -29,3 +29,4 @@ dist/
 
 # Generated dashboard output
 results/
+models/

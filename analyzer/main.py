@@ -4,67 +4,25 @@ import argparse
 import json
 import shutil
 import sys
-from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 from analyzer.features import extract_features
-from analyzer.m4_findings import FINDINGS, tier_badge
+from analyzer.predict import (
+    DEFAULT_THRESHOLD_RULES,
+    build_report_record,
+    detect_findings,
+    format_report,
+    threshold_predictions,
+)
+from analyzer.profile import load_profile, predict_with_profile
 
 ROOT = Path(__file__).parent.parent
 RESULTS_DIR = ROOT / "results"
 IMAGES_DIR = ROOT / "db-test_images" / "images"
 DASHBOARD_TMPL = Path(__file__).parent / "dashboard.html"
-
-# Each lambda receives the feature dict from extract_features() and returns bool.
-# Cutoffs are hand-tuned against NIH ChestX-ray14 pixel statistics (grayscale 0-1).
-# Consolidation requires diffuse airspace signal (haze + basal opacity) AND
-# low-variance fields. Focal_opacity flags a high-variance focal hot-spot. Both
-# can fire on the same image when a diffuse process coexists with a focal lesion
-# — which is clinically realistic.
-THRESHOLDS: dict[str, Callable[[dict[str, float]], bool]] = {
-    "cardiomegaly": lambda f: f["ctr"] > 0.2217,
-    "pneumothorax": lambda f: (
-        (f["ptx_left_mean"] < 0.33 and f["ptx_left_std"] < 0.14)
-        or (f["ptx_right_mean"] < 0.33 and f["ptx_right_std"] < 0.14)
-    ),
-    "pleural_effusion": lambda f: f["basal_opacity"] > 0.52,
-    "pulmonary_edema": lambda f: f["bilateral_haze"] > 0.3533,
-    "consolidation": lambda f: (
-        f["bilateral_haze"] > 0.3500 and f["basal_opacity"] > 0.4500 and f["focal_variance"] < 0.0200
-    ),
-    "atelectasis": lambda f: f["horiz_band"] > 0.065,
-    "emphysema": lambda f: f["diaphragm_pos"] > 0.6670,
-    "focal_opacity": lambda f: f["focal_variance"] >= 0.0122,
-}
-
-
-def detect_findings(feats: dict[str, float]) -> list[str]:
-    return [key for key, test in THRESHOLDS.items() if test(feats)]
-
-
-def format_report(image_name: str, feats: dict[str, float], found: list[str]) -> str:
-    lines = [f"\n{'─' * 60}", f"  Image: {image_name}", f"{'─' * 60}"]
-
-    if not found:
-        lines.append("  No significant findings detected.")
-        lines.append("  M4 note: Normal chest X-ray — confirm bilateral lung fields,")
-        lines.append("           clear costophrenic angles, normal cardiac silhouette.")
-        return "\n".join(lines)
-
-    for key in sorted(found, key=lambda k: FINDINGS[k].tier):
-        f = FINDINGS[key]
-        lines.append(f"\n  {tier_badge(f.tier)} {f.name}")
-        lines.append(f"    Finding : {f.description}")
-        lines.append(f"    M4 action: {f.m4_action}")
-
-    lines.append("\n  Raw metrics:")
-    lines.append(
-        f"    CTR={feats['ctr']:.2f}  Basal={feats['basal_opacity']:.2f}  "
-        f"Haze={feats['bilateral_haze']:.2f}  FocalVar={feats['focal_variance']:.3f}  "
-        f"Diaphragm={feats['diaphragm_pos']:.2f}"
-    )
-    return "\n".join(lines)
+THRESHOLDS = DEFAULT_THRESHOLD_RULES
+__all__ = ["THRESHOLDS", "detect_findings", "main"]
 
 
 def summary_table(results: list[tuple[str, list[str]]]) -> str:
@@ -80,6 +38,28 @@ def summary_table(results: list[tuple[str, list[str]]]) -> str:
     return "\n".join(lines)
 
 
+def _iter_images(args: argparse.Namespace) -> list[Path]:
+    if args.image is not None:
+        return [args.image]
+
+    images_dir = args.images_dir
+    all_images = sorted(images_dir.glob("*.png"))
+    batch = all_images[args.offset : args.offset + args.n]
+    if not batch:
+        print(f"No PNG images found at offset {args.offset} in {images_dir}", file=sys.stderr)
+        raise SystemExit(1)
+    return batch
+
+
+def _load_predictions(
+    feats: dict[str, float],
+    profile: dict[str, Any] | None,
+) -> dict[str, dict[str, float | bool | None]]:
+    if profile is None:
+        return threshold_predictions(feats)
+    return predict_with_profile(feats, profile)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="NIH ChestX-ray14 M4 Competency Analyzer")
     parser.add_argument("--n", type=int, default=10, help="images to process (default 10)")
@@ -87,17 +67,24 @@ def main() -> None:
     parser.add_argument(
         "--append", action="store_true", help="append to existing report.json instead of overwriting"
     )
+    parser.add_argument("--profile", type=Path, help="path to a persisted calibration profile")
+    parser.add_argument("--image", type=Path, help="score a single PNG instead of scanning a directory")
+    parser.add_argument("--images-dir", type=Path, default=IMAGES_DIR, help="directory of PNGs to analyze")
+    parser.add_argument("--out", type=Path, default=RESULTS_DIR / "report.json", help="output JSON report path")
     args = parser.parse_args()
 
-    all_images = sorted(IMAGES_DIR.glob("*.png"))
-    batch = all_images[args.offset : args.offset + args.n]
-    if not batch:
-        print(f"No PNG images found at offset {args.offset} in {IMAGES_DIR}", file=sys.stderr)
-        sys.exit(1)
+    batch = _iter_images(args)
+    profile = load_profile(args.profile) if args.profile is not None else None
+    total_available = len(batch) if args.image else len(sorted(args.images_dir.glob("*.png")))
 
     print(f"\n{'=' * 60}")
     print("  NIH ChestX-ray14 — Competency Analyzer")
-    print(f"  Offset {args.offset} · Batch {len(batch)} · Total available {len(all_images)}")
+    source_label = args.image.name if args.image else f"Offset {args.offset} · Batch {len(batch)}"
+    print(f"  {source_label} · Total available {total_available}")
+    if args.profile is not None:
+        print(f"  Detection mode: calibrated profile ({args.profile})")
+    else:
+        print("  Detection mode: threshold fallback")
     print(f"{'=' * 60}")
 
     results: list[tuple[str, list[str]]] = []
@@ -108,43 +95,27 @@ def main() -> None:
         except Exception as e:
             print(f"\n  [SKIP] {img_path.name} — {e}", file=sys.stderr)
             continue
-        found = detect_findings(feats)
-        print(format_report(img_path.name, feats, found))
+
+        predictions = _load_predictions(feats, profile)
+        found = [key for key, pred in predictions.items() if pred["detected"]]
+        print(format_report(img_path.name, feats, predictions))
         results.append((img_path.name, found))
-        json_records.append(
-            {
-                "image": img_path.name,
-                "findings": {
-                    key: {
-                        "detected": key in found,
-                        "tier": FINDINGS[key].tier,
-                        "tier_label": FINDINGS[key].tier_label,
-                        "name": FINDINGS[key].name,
-                        "description": FINDINGS[key].description,
-                        "m4_action": FINDINGS[key].m4_action,
-                    }
-                    for key in THRESHOLDS
-                },
-                "metrics": {k: round(v, 4) for k, v in feats.items()},
-            }
-        )
+        json_records.append(build_report_record(img_path.name, feats, predictions))
 
-    RESULTS_DIR.mkdir(exist_ok=True)
-    out_path = RESULTS_DIR / "report.json"
+    args.out.parent.mkdir(parents=True, exist_ok=True)
 
-    if args.append and out_path.exists():
-        existing = json.loads(out_path.read_text())
+    if args.append and args.out.exists():
+        existing = json.loads(args.out.read_text())
         seen = {r["image"] for r in existing}
         merged = existing + [r for r in json_records if r["image"] not in seen]
-        out_path.write_text(json.dumps(merged, indent=2))
-        print(f"\n  JSON appended → {out_path}  ({len(merged)} total records)")
+        args.out.write_text(json.dumps(merged, indent=2))
+        print(f"\n  JSON appended → {args.out}  ({len(merged)} total records)")
     else:
-        out_path.write_text(json.dumps(json_records, indent=2))
-        print(f"\n  JSON saved → {out_path}")
+        args.out.write_text(json.dumps(json_records, indent=2))
+        print(f"\n  JSON saved → {args.out}")
 
     _write_dashboard()
     print(f"  Dashboard → {RESULTS_DIR / 'dashboard.html'}")
-
     print(summary_table(results))
     print(f"\n{'─' * 60}")
     print("  Tier legend:")
@@ -155,8 +126,7 @@ def main() -> None:
 
 
 def _write_dashboard() -> None:
-    # The HTML template is the single source of truth in analyzer/.
-    # results/ is gitignored and rebuilt on each run / first server boot.
+    RESULTS_DIR.mkdir(exist_ok=True)
     shutil.copy(DASHBOARD_TMPL, RESULTS_DIR / "dashboard.html")
     shutil.copy(DASHBOARD_TMPL, RESULTS_DIR / "index.html")
 

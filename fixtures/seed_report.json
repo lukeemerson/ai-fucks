@@ -1,9 +1,9 @@
 [
   {
-    "image": "00000080_002.png",
+    "image": "00006585_007.png",
     "findings": {
       "cardiomegaly": {
-        "detected": false,
+        "detected": true,
         "tier": 2,
         "tier_label": "Should recognize",
         "name": "Cardiomegaly",
@@ -20,168 +20,6 @@
       },
       "pleural_effusion": {
         "detected": false,
-        "tier": 2,
-        "tier_label": "Should recognize",
-        "name": "Pleural Effusion",
-        "description": "Basal opacification with meniscus / blunted costophrenic angle",
-        "m4_action": "Grade size; consider thoracentesis if large/symptomatic; work up exudate vs transudate (Light's criteria)"
-      },
-      "pulmonary_edema": {
-        "detected": true,
-        "tier": 1,
-        "tier_label": "MUST recognize",
-        "name": "Pulmonary Edema",
-        "description": "Bilateral diffuse haziness, perihilar bat-wing pattern",
-        "m4_action": "Assess volume status, BNP, Echo; start diuresis (furosemide); monitor O\u2082 sat"
-      },
-      "consolidation": {
-        "detected": false,
-        "tier": 2,
-        "tier_label": "Should recognize",
-        "name": "Consolidation / Pneumonia",
-        "description": "Focal airspace opacity with or without air bronchograms",
-        "m4_action": "Determine CAP vs HAP; start empiric antibiotics per guidelines; follow up film in 6 wks"
-      },
-      "atelectasis": {
-        "detected": false,
-        "tier": 2,
-        "tier_label": "Should recognize",
-        "name": "Atelectasis",
-        "description": "Linear or lobar opacity with volume loss / tracheal shift",
-        "m4_action": "Encourage deep breathing/incentive spirometry; rule out obstructing lesion if lobar; chest PT"
-      },
-      "emphysema": {
-        "detected": false,
-        "tier": 3,
-        "tier_label": "Should know about",
-        "name": "Emphysema / Hyperinflation",
-        "description": "Flat diaphragm, barrel chest, increased AP diameter",
-        "m4_action": "Confirm COPD history; PFTs; bronchodilators; smoking cessation counseling"
-      },
-      "focal_opacity": {
-        "detected": false,
-        "tier": 3,
-        "tier_label": "Should know about",
-        "name": "Focal Opacity / Nodule",
-        "description": "Focal high-density region \u2014 nodule, mass, or infiltrate",
-        "m4_action": "Apply Fleischner Society guidelines for nodule follow-up; CT chest; consider PET if >8mm"
-      }
-    },
-    "metrics": {
-      "ctr": 0.2148,
-      "ptx_left_mean": 0.2312,
-      "ptx_right_mean": 0.2971,
-      "ptx_left_std": 0.167,
-      "ptx_right_std": 0.1789,
-      "basal_opacity": 0.4175,
-      "bilateral_haze": 0.3888,
-      "diaphragm_pos": 0.6152,
-      "focal_variance": 0.0082,
-      "horiz_band": 0.0338
-    }
-  },
-  {
-    "image": "00000420_001.png",
-    "findings": {
-      "cardiomegaly": {
-        "detected": false,
-        "tier": 2,
-        "tier_label": "Should recognize",
-        "name": "Cardiomegaly",
-        "description": "Cardiothoracic ratio > 0.50 on PA film",
-        "m4_action": "Assess for CHF, valvular disease; order Echo, BNP"
-      },
-      "pneumothorax": {
-        "detected": false,
-        "tier": 1,
-        "tier_label": "MUST recognize",
-        "name": "Possible Pneumothorax",
-        "description": "Peripheral lucency with absent lung markings",
-        "m4_action": "Check tracheal deviation, breath sounds; if tension \u2192 needle decompression 2nd ICS MCL; order stat CXR/CT"
-      },
-      "pleural_effusion": {
-        "detected": false,
-        "tier": 2,
-        "tier_label": "Should recognize",
-        "name": "Pleural Effusion",
-        "description": "Basal opacification with meniscus / blunted costophrenic angle",
-        "m4_action": "Grade size; consider thoracentesis if large/symptomatic; work up exudate vs transudate (Light's criteria)"
-      },
-      "pulmonary_edema": {
-        "detected": true,
-        "tier": 1,
-        "tier_label": "MUST recognize",
-        "name": "Pulmonary Edema",
-        "description": "Bilateral diffuse haziness, perihilar bat-wing pattern",
-        "m4_action": "Assess volume status, BNP, Echo; start diuresis (furosemide); monitor O\u2082 sat"
-      },
-      "consolidation": {
-        "detected": false,
-        "tier": 2,
-        "tier_label": "Should recognize",
-        "name": "Consolidation / Pneumonia",
-        "description": "Focal airspace opacity with or without air bronchograms",
-        "m4_action": "Determine CAP vs HAP; start empiric antibiotics per guidelines; follow up film in 6 wks"
-      },
-      "atelectasis": {
-        "detected": false,
-        "tier": 2,
-        "tier_label": "Should recognize",
-        "name": "Atelectasis",
-        "description": "Linear or lobar opacity with volume loss / tracheal shift",
-        "m4_action": "Encourage deep breathing/incentive spirometry; rule out obstructing lesion if lobar; chest PT"
-      },
-      "emphysema": {
-        "detected": false,
-        "tier": 3,
-        "tier_label": "Should know about",
-        "name": "Emphysema / Hyperinflation",
-        "description": "Flat diaphragm, barrel chest, increased AP diameter",
-        "m4_action": "Confirm COPD history; PFTs; bronchodilators; smoking cessation counseling"
-      },
-      "focal_opacity": {
-        "detected": false,
-        "tier": 3,
-        "tier_label": "Should know about",
-        "name": "Focal Opacity / Nodule",
-        "description": "Focal high-density region \u2014 nodule, mass, or infiltrate",
-        "m4_action": "Apply Fleischner Society guidelines for nodule follow-up; CT chest; consider PET if >8mm"
-      }
-    },
-    "metrics": {
-      "ctr": 0.2109,
-      "ptx_left_mean": 0.2731,
-      "ptx_right_mean": 0.2728,
-      "ptx_left_std": 0.1892,
-      "ptx_right_std": 0.188,
-      "basal_opacity": 0.4291,
-      "bilateral_haze": 0.4183,
-      "diaphragm_pos": 0.6602,
-      "focal_variance": 0.0054,
-      "horiz_band": 0.036
-    }
-  },
-  {
-    "image": "00000003_005.png",
-    "findings": {
-      "cardiomegaly": {
-        "detected": false,
-        "tier": 2,
-        "tier_label": "Should recognize",
-        "name": "Cardiomegaly",
-        "description": "Cardiothoracic ratio > 0.50 on PA film",
-        "m4_action": "Assess for CHF, valvular disease; order Echo, BNP"
-      },
-      "pneumothorax": {
-        "detected": false,
-        "tier": 1,
-        "tier_label": "MUST recognize",
-        "name": "Possible Pneumothorax",
-        "description": "Peripheral lucency with absent lung markings",
-        "m4_action": "Check tracheal deviation, breath sounds; if tension \u2192 needle decompression 2nd ICS MCL; order stat CXR/CT"
-      },
-      "pleural_effusion": {
-        "detected": true,
         "tier": 2,
         "tier_label": "Should recognize",
         "name": "Pleural Effusion",
@@ -230,23 +68,23 @@
       }
     },
     "metrics": {
-      "ctr": 0.2188,
-      "ptx_left_mean": 0.3474,
-      "ptx_right_mean": 0.4977,
-      "ptx_left_std": 0.2248,
-      "ptx_right_std": 0.2427,
-      "basal_opacity": 0.7522,
-      "bilateral_haze": 0.3439,
-      "diaphragm_pos": 0.6504,
-      "focal_variance": 0.0211,
-      "horiz_band": 0.0496
+      "ctr": 0.3828,
+      "ptx_left_mean": 0.4147,
+      "ptx_right_mean": 0.5016,
+      "ptx_left_std": 0.1919,
+      "ptx_right_std": 0.2029,
+      "basal_opacity": 0.6037,
+      "bilateral_haze": 0.516,
+      "diaphragm_pos": 0.4629,
+      "focal_variance": 0.0265,
+      "horiz_band": 0.0342
     }
   },
   {
-    "image": "00000013_005.png",
+    "image": "00006585_008.png",
     "findings": {
       "cardiomegaly": {
-        "detected": true,
+        "detected": false,
         "tier": 2,
         "tier_label": "Should recognize",
         "name": "Cardiomegaly",
@@ -294,7 +132,7 @@
         "m4_action": "Encourage deep breathing/incentive spirometry; rule out obstructing lesion if lobar; chest PT"
       },
       "emphysema": {
-        "detected": true,
+        "detected": false,
         "tier": 3,
         "tier_label": "Should know about",
         "name": "Emphysema / Hyperinflation",
@@ -312,22 +150,22 @@
     },
     "metrics": {
       "ctr": 0.2539,
-      "ptx_left_mean": 0.2773,
-      "ptx_right_mean": 0.3029,
-      "ptx_left_std": 0.1541,
-      "ptx_right_std": 0.1516,
-      "basal_opacity": 0.4187,
-      "bilateral_haze": 0.3336,
-      "diaphragm_pos": 0.9961,
-      "focal_variance": 0.0113,
-      "horiz_band": 0.0561
+      "ptx_left_mean": 0.441,
+      "ptx_right_mean": 0.315,
+      "ptx_left_std": 0.2092,
+      "ptx_right_std": 0.1891,
+      "basal_opacity": 0.5497,
+      "bilateral_haze": 0.4316,
+      "diaphragm_pos": 0.5566,
+      "focal_variance": 0.0193,
+      "horiz_band": 0.0431
     }
   },
   {
-    "image": "00000003_000.png",
+    "image": "00006585_009.png",
     "findings": {
       "cardiomegaly": {
-        "detected": true,
+        "detected": false,
         "tier": 2,
         "tier_label": "Should recognize",
         "name": "Cardiomegaly",
@@ -335,7 +173,7 @@
         "m4_action": "Assess for CHF, valvular disease; order Echo, BNP"
       },
       "pneumothorax": {
-        "detected": false,
+        "detected": true,
         "tier": 1,
         "tier_label": "MUST recognize",
         "name": "Possible Pneumothorax",
@@ -343,7 +181,7 @@
         "m4_action": "Check tracheal deviation, breath sounds; if tension \u2192 needle decompression 2nd ICS MCL; order stat CXR/CT"
       },
       "pleural_effusion": {
-        "detected": true,
+        "detected": false,
         "tier": 2,
         "tier_label": "Should recognize",
         "name": "Pleural Effusion",
@@ -392,20 +230,20 @@
       }
     },
     "metrics": {
-      "ctr": 0.2422,
-      "ptx_left_mean": 0.3911,
-      "ptx_right_mean": 0.3697,
-      "ptx_left_std": 0.2223,
-      "ptx_right_std": 0.2717,
-      "basal_opacity": 0.7355,
-      "bilateral_haze": 0.3064,
-      "diaphragm_pos": 0.6387,
+      "ctr": 0.2578,
+      "ptx_left_mean": 0.2983,
+      "ptx_right_mean": 0.0504,
+      "ptx_left_std": 0.1715,
+      "ptx_right_std": 0.1183,
+      "basal_opacity": 0.509,
+      "bilateral_haze": 0.377,
+      "diaphragm_pos": 0.4668,
       "focal_variance": 0.0292,
-      "horiz_band": 0.0529
+      "horiz_band": 0.0471
     }
   },
   {
-    "image": "00000003_003.png",
+    "image": "00006585_010.png",
     "findings": {
       "cardiomegaly": {
         "detected": false,
@@ -424,7 +262,7 @@
         "m4_action": "Check tracheal deviation, breath sounds; if tension \u2192 needle decompression 2nd ICS MCL; order stat CXR/CT"
       },
       "pleural_effusion": {
-        "detected": true,
+        "detected": false,
         "tier": 2,
         "tier_label": "Should recognize",
         "name": "Pleural Effusion",
@@ -432,7 +270,88 @@
         "m4_action": "Grade size; consider thoracentesis if large/symptomatic; work up exudate vs transudate (Light's criteria)"
       },
       "pulmonary_edema": {
-        "detected": true,
+        "detected": false,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Pulmonary Edema",
+        "description": "Bilateral diffuse haziness, perihilar bat-wing pattern",
+        "m4_action": "Assess volume status, BNP, Echo; start diuresis (furosemide); monitor O\u2082 sat"
+      },
+      "consolidation": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Consolidation / Pneumonia",
+        "description": "Focal airspace opacity with or without air bronchograms",
+        "m4_action": "Determine CAP vs HAP; start empiric antibiotics per guidelines; follow up film in 6 wks"
+      },
+      "atelectasis": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Atelectasis",
+        "description": "Linear or lobar opacity with volume loss / tracheal shift",
+        "m4_action": "Encourage deep breathing/incentive spirometry; rule out obstructing lesion if lobar; chest PT"
+      },
+      "emphysema": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Emphysema / Hyperinflation",
+        "description": "Flat diaphragm, barrel chest, increased AP diameter",
+        "m4_action": "Confirm COPD history; PFTs; bronchodilators; smoking cessation counseling"
+      },
+      "focal_opacity": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Focal Opacity / Nodule",
+        "description": "Focal high-density region \u2014 nodule, mass, or infiltrate",
+        "m4_action": "Apply Fleischner Society guidelines for nodule follow-up; CT chest; consider PET if >8mm"
+      }
+    },
+    "metrics": {
+      "ctr": 0.2637,
+      "ptx_left_mean": 0.4104,
+      "ptx_right_mean": 0.3912,
+      "ptx_left_std": 0.2071,
+      "ptx_right_std": 0.1882,
+      "basal_opacity": 0.6111,
+      "bilateral_haze": 0.5299,
+      "diaphragm_pos": 0.6211,
+      "focal_variance": 0.0199,
+      "horiz_band": 0.0475
+    }
+  },
+  {
+    "image": "00006585_011.png",
+    "findings": {
+      "cardiomegaly": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Cardiomegaly",
+        "description": "Cardiothoracic ratio > 0.50 on PA film",
+        "m4_action": "Assess for CHF, valvular disease; order Echo, BNP"
+      },
+      "pneumothorax": {
+        "detected": false,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Possible Pneumothorax",
+        "description": "Peripheral lucency with absent lung markings",
+        "m4_action": "Check tracheal deviation, breath sounds; if tension \u2192 needle decompression 2nd ICS MCL; order stat CXR/CT"
+      },
+      "pleural_effusion": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Pleural Effusion",
+        "description": "Basal opacification with meniscus / blunted costophrenic angle",
+        "m4_action": "Grade size; consider thoracentesis if large/symptomatic; work up exudate vs transudate (Light's criteria)"
+      },
+      "pulmonary_edema": {
+        "detected": false,
         "tier": 1,
         "tier_label": "MUST recognize",
         "name": "Pulmonary Edema",
@@ -473,23 +392,590 @@
       }
     },
     "metrics": {
-      "ctr": 0.1934,
-      "ptx_left_mean": 0.4144,
-      "ptx_right_mean": 0.6088,
-      "ptx_left_std": 0.2066,
-      "ptx_right_std": 0.2282,
-      "basal_opacity": 0.7737,
-      "bilateral_haze": 0.4048,
-      "diaphragm_pos": 0.6035,
-      "focal_variance": 0.0235,
-      "horiz_band": 0.0482
+      "ctr": 0.2363,
+      "ptx_left_mean": 0.365,
+      "ptx_right_mean": 0.3925,
+      "ptx_left_std": 0.1598,
+      "ptx_right_std": 0.2166,
+      "basal_opacity": 0.6101,
+      "bilateral_haze": 0.4981,
+      "diaphragm_pos": 0.4961,
+      "focal_variance": 0.0228,
+      "horiz_band": 0.0516
     }
   },
   {
-    "image": "00000008_000.png",
+    "image": "00006585_012.png",
     "findings": {
       "cardiomegaly": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Cardiomegaly",
+        "description": "Cardiothoracic ratio > 0.50 on PA film",
+        "m4_action": "Assess for CHF, valvular disease; order Echo, BNP"
+      },
+      "pneumothorax": {
+        "detected": false,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Possible Pneumothorax",
+        "description": "Peripheral lucency with absent lung markings",
+        "m4_action": "Check tracheal deviation, breath sounds; if tension \u2192 needle decompression 2nd ICS MCL; order stat CXR/CT"
+      },
+      "pleural_effusion": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Pleural Effusion",
+        "description": "Basal opacification with meniscus / blunted costophrenic angle",
+        "m4_action": "Grade size; consider thoracentesis if large/symptomatic; work up exudate vs transudate (Light's criteria)"
+      },
+      "pulmonary_edema": {
+        "detected": false,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Pulmonary Edema",
+        "description": "Bilateral diffuse haziness, perihilar bat-wing pattern",
+        "m4_action": "Assess volume status, BNP, Echo; start diuresis (furosemide); monitor O\u2082 sat"
+      },
+      "consolidation": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Consolidation / Pneumonia",
+        "description": "Focal airspace opacity with or without air bronchograms",
+        "m4_action": "Determine CAP vs HAP; start empiric antibiotics per guidelines; follow up film in 6 wks"
+      },
+      "atelectasis": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Atelectasis",
+        "description": "Linear or lobar opacity with volume loss / tracheal shift",
+        "m4_action": "Encourage deep breathing/incentive spirometry; rule out obstructing lesion if lobar; chest PT"
+      },
+      "emphysema": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Emphysema / Hyperinflation",
+        "description": "Flat diaphragm, barrel chest, increased AP diameter",
+        "m4_action": "Confirm COPD history; PFTs; bronchodilators; smoking cessation counseling"
+      },
+      "focal_opacity": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Focal Opacity / Nodule",
+        "description": "Focal high-density region \u2014 nodule, mass, or infiltrate",
+        "m4_action": "Apply Fleischner Society guidelines for nodule follow-up; CT chest; consider PET if >8mm"
+      }
+    },
+    "metrics": {
+      "ctr": 0.2012,
+      "ptx_left_mean": 0.2297,
+      "ptx_right_mean": 0.456,
+      "ptx_left_std": 0.2022,
+      "ptx_right_std": 0.2014,
+      "basal_opacity": 0.5964,
+      "bilateral_haze": 0.4858,
+      "diaphragm_pos": 0.459,
+      "focal_variance": 0.0133,
+      "horiz_band": 0.0464
+    }
+  },
+  {
+    "image": "00006585_013.png",
+    "findings": {
+      "cardiomegaly": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Cardiomegaly",
+        "description": "Cardiothoracic ratio > 0.50 on PA film",
+        "m4_action": "Assess for CHF, valvular disease; order Echo, BNP"
+      },
+      "pneumothorax": {
         "detected": true,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Possible Pneumothorax",
+        "description": "Peripheral lucency with absent lung markings",
+        "m4_action": "Check tracheal deviation, breath sounds; if tension \u2192 needle decompression 2nd ICS MCL; order stat CXR/CT"
+      },
+      "pleural_effusion": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Pleural Effusion",
+        "description": "Basal opacification with meniscus / blunted costophrenic angle",
+        "m4_action": "Grade size; consider thoracentesis if large/symptomatic; work up exudate vs transudate (Light's criteria)"
+      },
+      "pulmonary_edema": {
+        "detected": false,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Pulmonary Edema",
+        "description": "Bilateral diffuse haziness, perihilar bat-wing pattern",
+        "m4_action": "Assess volume status, BNP, Echo; start diuresis (furosemide); monitor O\u2082 sat"
+      },
+      "consolidation": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Consolidation / Pneumonia",
+        "description": "Focal airspace opacity with or without air bronchograms",
+        "m4_action": "Determine CAP vs HAP; start empiric antibiotics per guidelines; follow up film in 6 wks"
+      },
+      "atelectasis": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Atelectasis",
+        "description": "Linear or lobar opacity with volume loss / tracheal shift",
+        "m4_action": "Encourage deep breathing/incentive spirometry; rule out obstructing lesion if lobar; chest PT"
+      },
+      "emphysema": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Emphysema / Hyperinflation",
+        "description": "Flat diaphragm, barrel chest, increased AP diameter",
+        "m4_action": "Confirm COPD history; PFTs; bronchodilators; smoking cessation counseling"
+      },
+      "focal_opacity": {
+        "detected": true,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Focal Opacity / Nodule",
+        "description": "Focal high-density region \u2014 nodule, mass, or infiltrate",
+        "m4_action": "Apply Fleischner Society guidelines for nodule follow-up; CT chest; consider PET if >8mm"
+      }
+    },
+    "metrics": {
+      "ctr": 0.2109,
+      "ptx_left_mean": 0.4739,
+      "ptx_right_mean": 0.0,
+      "ptx_left_std": 0.1599,
+      "ptx_right_std": 0.0,
+      "basal_opacity": 0.5686,
+      "bilateral_haze": 0.4222,
+      "diaphragm_pos": 0.6152,
+      "focal_variance": 0.0268,
+      "horiz_band": 0.0317
+    }
+  },
+  {
+    "image": "00006585_014.png",
+    "findings": {
+      "cardiomegaly": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Cardiomegaly",
+        "description": "Cardiothoracic ratio > 0.50 on PA film",
+        "m4_action": "Assess for CHF, valvular disease; order Echo, BNP"
+      },
+      "pneumothorax": {
+        "detected": false,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Possible Pneumothorax",
+        "description": "Peripheral lucency with absent lung markings",
+        "m4_action": "Check tracheal deviation, breath sounds; if tension \u2192 needle decompression 2nd ICS MCL; order stat CXR/CT"
+      },
+      "pleural_effusion": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Pleural Effusion",
+        "description": "Basal opacification with meniscus / blunted costophrenic angle",
+        "m4_action": "Grade size; consider thoracentesis if large/symptomatic; work up exudate vs transudate (Light's criteria)"
+      },
+      "pulmonary_edema": {
+        "detected": false,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Pulmonary Edema",
+        "description": "Bilateral diffuse haziness, perihilar bat-wing pattern",
+        "m4_action": "Assess volume status, BNP, Echo; start diuresis (furosemide); monitor O\u2082 sat"
+      },
+      "consolidation": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Consolidation / Pneumonia",
+        "description": "Focal airspace opacity with or without air bronchograms",
+        "m4_action": "Determine CAP vs HAP; start empiric antibiotics per guidelines; follow up film in 6 wks"
+      },
+      "atelectasis": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Atelectasis",
+        "description": "Linear or lobar opacity with volume loss / tracheal shift",
+        "m4_action": "Encourage deep breathing/incentive spirometry; rule out obstructing lesion if lobar; chest PT"
+      },
+      "emphysema": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Emphysema / Hyperinflation",
+        "description": "Flat diaphragm, barrel chest, increased AP diameter",
+        "m4_action": "Confirm COPD history; PFTs; bronchodilators; smoking cessation counseling"
+      },
+      "focal_opacity": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Focal Opacity / Nodule",
+        "description": "Focal high-density region \u2014 nodule, mass, or infiltrate",
+        "m4_action": "Apply Fleischner Society guidelines for nodule follow-up; CT chest; consider PET if >8mm"
+      }
+    },
+    "metrics": {
+      "ctr": 0.1699,
+      "ptx_left_mean": 0.2133,
+      "ptx_right_mean": 0.5554,
+      "ptx_left_std": 0.21,
+      "ptx_right_std": 0.202,
+      "basal_opacity": 0.6301,
+      "bilateral_haze": 0.5713,
+      "diaphragm_pos": 0.7207,
+      "focal_variance": 0.0196,
+      "horiz_band": 0.0405
+    }
+  },
+  {
+    "image": "00006585_015.png",
+    "findings": {
+      "cardiomegaly": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Cardiomegaly",
+        "description": "Cardiothoracic ratio > 0.50 on PA film",
+        "m4_action": "Assess for CHF, valvular disease; order Echo, BNP"
+      },
+      "pneumothorax": {
+        "detected": false,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Possible Pneumothorax",
+        "description": "Peripheral lucency with absent lung markings",
+        "m4_action": "Check tracheal deviation, breath sounds; if tension \u2192 needle decompression 2nd ICS MCL; order stat CXR/CT"
+      },
+      "pleural_effusion": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Pleural Effusion",
+        "description": "Basal opacification with meniscus / blunted costophrenic angle",
+        "m4_action": "Grade size; consider thoracentesis if large/symptomatic; work up exudate vs transudate (Light's criteria)"
+      },
+      "pulmonary_edema": {
+        "detected": false,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Pulmonary Edema",
+        "description": "Bilateral diffuse haziness, perihilar bat-wing pattern",
+        "m4_action": "Assess volume status, BNP, Echo; start diuresis (furosemide); monitor O\u2082 sat"
+      },
+      "consolidation": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Consolidation / Pneumonia",
+        "description": "Focal airspace opacity with or without air bronchograms",
+        "m4_action": "Determine CAP vs HAP; start empiric antibiotics per guidelines; follow up film in 6 wks"
+      },
+      "atelectasis": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Atelectasis",
+        "description": "Linear or lobar opacity with volume loss / tracheal shift",
+        "m4_action": "Encourage deep breathing/incentive spirometry; rule out obstructing lesion if lobar; chest PT"
+      },
+      "emphysema": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Emphysema / Hyperinflation",
+        "description": "Flat diaphragm, barrel chest, increased AP diameter",
+        "m4_action": "Confirm COPD history; PFTs; bronchodilators; smoking cessation counseling"
+      },
+      "focal_opacity": {
+        "detected": true,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Focal Opacity / Nodule",
+        "description": "Focal high-density region \u2014 nodule, mass, or infiltrate",
+        "m4_action": "Apply Fleischner Society guidelines for nodule follow-up; CT chest; consider PET if >8mm"
+      }
+    },
+    "metrics": {
+      "ctr": 0.1992,
+      "ptx_left_mean": 0.3792,
+      "ptx_right_mean": 0.0754,
+      "ptx_left_std": 0.2402,
+      "ptx_right_std": 0.1455,
+      "basal_opacity": 0.571,
+      "bilateral_haze": 0.3998,
+      "diaphragm_pos": 0.6523,
+      "focal_variance": 0.0244,
+      "horiz_band": 0.0671
+    }
+  },
+  {
+    "image": "00006585_016.png",
+    "findings": {
+      "cardiomegaly": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Cardiomegaly",
+        "description": "Cardiothoracic ratio > 0.50 on PA film",
+        "m4_action": "Assess for CHF, valvular disease; order Echo, BNP"
+      },
+      "pneumothorax": {
+        "detected": false,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Possible Pneumothorax",
+        "description": "Peripheral lucency with absent lung markings",
+        "m4_action": "Check tracheal deviation, breath sounds; if tension \u2192 needle decompression 2nd ICS MCL; order stat CXR/CT"
+      },
+      "pleural_effusion": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Pleural Effusion",
+        "description": "Basal opacification with meniscus / blunted costophrenic angle",
+        "m4_action": "Grade size; consider thoracentesis if large/symptomatic; work up exudate vs transudate (Light's criteria)"
+      },
+      "pulmonary_edema": {
+        "detected": false,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Pulmonary Edema",
+        "description": "Bilateral diffuse haziness, perihilar bat-wing pattern",
+        "m4_action": "Assess volume status, BNP, Echo; start diuresis (furosemide); monitor O\u2082 sat"
+      },
+      "consolidation": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Consolidation / Pneumonia",
+        "description": "Focal airspace opacity with or without air bronchograms",
+        "m4_action": "Determine CAP vs HAP; start empiric antibiotics per guidelines; follow up film in 6 wks"
+      },
+      "atelectasis": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Atelectasis",
+        "description": "Linear or lobar opacity with volume loss / tracheal shift",
+        "m4_action": "Encourage deep breathing/incentive spirometry; rule out obstructing lesion if lobar; chest PT"
+      },
+      "emphysema": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Emphysema / Hyperinflation",
+        "description": "Flat diaphragm, barrel chest, increased AP diameter",
+        "m4_action": "Confirm COPD history; PFTs; bronchodilators; smoking cessation counseling"
+      },
+      "focal_opacity": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Focal Opacity / Nodule",
+        "description": "Focal high-density region \u2014 nodule, mass, or infiltrate",
+        "m4_action": "Apply Fleischner Society guidelines for nodule follow-up; CT chest; consider PET if >8mm"
+      }
+    },
+    "metrics": {
+      "ctr": 0.1992,
+      "ptx_left_mean": 0.2135,
+      "ptx_right_mean": 0.3781,
+      "ptx_left_std": 0.2152,
+      "ptx_right_std": 0.2445,
+      "basal_opacity": 0.5625,
+      "bilateral_haze": 0.4984,
+      "diaphragm_pos": 0.5957,
+      "focal_variance": 0.0194,
+      "horiz_band": 0.0567
+    }
+  },
+  {
+    "image": "00006585_017.png",
+    "findings": {
+      "cardiomegaly": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Cardiomegaly",
+        "description": "Cardiothoracic ratio > 0.50 on PA film",
+        "m4_action": "Assess for CHF, valvular disease; order Echo, BNP"
+      },
+      "pneumothorax": {
+        "detected": false,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Possible Pneumothorax",
+        "description": "Peripheral lucency with absent lung markings",
+        "m4_action": "Check tracheal deviation, breath sounds; if tension \u2192 needle decompression 2nd ICS MCL; order stat CXR/CT"
+      },
+      "pleural_effusion": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Pleural Effusion",
+        "description": "Basal opacification with meniscus / blunted costophrenic angle",
+        "m4_action": "Grade size; consider thoracentesis if large/symptomatic; work up exudate vs transudate (Light's criteria)"
+      },
+      "pulmonary_edema": {
+        "detected": false,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Pulmonary Edema",
+        "description": "Bilateral diffuse haziness, perihilar bat-wing pattern",
+        "m4_action": "Assess volume status, BNP, Echo; start diuresis (furosemide); monitor O\u2082 sat"
+      },
+      "consolidation": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Consolidation / Pneumonia",
+        "description": "Focal airspace opacity with or without air bronchograms",
+        "m4_action": "Determine CAP vs HAP; start empiric antibiotics per guidelines; follow up film in 6 wks"
+      },
+      "atelectasis": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Atelectasis",
+        "description": "Linear or lobar opacity with volume loss / tracheal shift",
+        "m4_action": "Encourage deep breathing/incentive spirometry; rule out obstructing lesion if lobar; chest PT"
+      },
+      "emphysema": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Emphysema / Hyperinflation",
+        "description": "Flat diaphragm, barrel chest, increased AP diameter",
+        "m4_action": "Confirm COPD history; PFTs; bronchodilators; smoking cessation counseling"
+      },
+      "focal_opacity": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Focal Opacity / Nodule",
+        "description": "Focal high-density region \u2014 nodule, mass, or infiltrate",
+        "m4_action": "Apply Fleischner Society guidelines for nodule follow-up; CT chest; consider PET if >8mm"
+      }
+    },
+    "metrics": {
+      "ctr": 0.1621,
+      "ptx_left_mean": 0.3204,
+      "ptx_right_mean": 0.4677,
+      "ptx_left_std": 0.2515,
+      "ptx_right_std": 0.2051,
+      "basal_opacity": 0.6227,
+      "bilateral_haze": 0.5801,
+      "diaphragm_pos": 0.4609,
+      "focal_variance": 0.0196,
+      "horiz_band": 0.0473
+    }
+  },
+  {
+    "image": "00006586_000.png",
+    "findings": {
+      "cardiomegaly": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Cardiomegaly",
+        "description": "Cardiothoracic ratio > 0.50 on PA film",
+        "m4_action": "Assess for CHF, valvular disease; order Echo, BNP"
+      },
+      "pneumothorax": {
+        "detected": false,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Possible Pneumothorax",
+        "description": "Peripheral lucency with absent lung markings",
+        "m4_action": "Check tracheal deviation, breath sounds; if tension \u2192 needle decompression 2nd ICS MCL; order stat CXR/CT"
+      },
+      "pleural_effusion": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Pleural Effusion",
+        "description": "Basal opacification with meniscus / blunted costophrenic angle",
+        "m4_action": "Grade size; consider thoracentesis if large/symptomatic; work up exudate vs transudate (Light's criteria)"
+      },
+      "pulmonary_edema": {
+        "detected": false,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Pulmonary Edema",
+        "description": "Bilateral diffuse haziness, perihilar bat-wing pattern",
+        "m4_action": "Assess volume status, BNP, Echo; start diuresis (furosemide); monitor O\u2082 sat"
+      },
+      "consolidation": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Consolidation / Pneumonia",
+        "description": "Focal airspace opacity with or without air bronchograms",
+        "m4_action": "Determine CAP vs HAP; start empiric antibiotics per guidelines; follow up film in 6 wks"
+      },
+      "atelectasis": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Atelectasis",
+        "description": "Linear or lobar opacity with volume loss / tracheal shift",
+        "m4_action": "Encourage deep breathing/incentive spirometry; rule out obstructing lesion if lobar; chest PT"
+      },
+      "emphysema": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Emphysema / Hyperinflation",
+        "description": "Flat diaphragm, barrel chest, increased AP diameter",
+        "m4_action": "Confirm COPD history; PFTs; bronchodilators; smoking cessation counseling"
+      },
+      "focal_opacity": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Focal Opacity / Nodule",
+        "description": "Focal high-density region \u2014 nodule, mass, or infiltrate",
+        "m4_action": "Apply Fleischner Society guidelines for nodule follow-up; CT chest; consider PET if >8mm"
+      }
+    },
+    "metrics": {
+      "ctr": 0.1523,
+      "ptx_left_mean": 0.7362,
+      "ptx_right_mean": 0.6111,
+      "ptx_left_std": 0.1067,
+      "ptx_right_std": 0.1857,
+      "basal_opacity": 0.7594,
+      "bilateral_haze": 0.608,
+      "diaphragm_pos": 0.5078,
+      "focal_variance": 0.0129,
+      "horiz_band": 0.0592
+    }
+  },
+  {
+    "image": "00006586_001.png",
+    "findings": {
+      "cardiomegaly": {
+        "detected": false,
         "tier": 2,
         "tier_label": "Should recognize",
         "name": "Cardiomegaly",
@@ -513,7 +999,7 @@
         "m4_action": "Grade size; consider thoracentesis if large/symptomatic; work up exudate vs transudate (Light's criteria)"
       },
       "pulmonary_edema": {
-        "detected": true,
+        "detected": false,
         "tier": 1,
         "tier_label": "MUST recognize",
         "name": "Pulmonary Edema",
@@ -521,7 +1007,7 @@
         "m4_action": "Assess volume status, BNP, Echo; start diuresis (furosemide); monitor O\u2082 sat"
       },
       "consolidation": {
-        "detected": true,
+        "detected": false,
         "tier": 2,
         "tier_label": "Should recognize",
         "name": "Consolidation / Pneumonia",
@@ -537,7 +1023,7 @@
         "m4_action": "Encourage deep breathing/incentive spirometry; rule out obstructing lesion if lobar; chest PT"
       },
       "emphysema": {
-        "detected": true,
+        "detected": false,
         "tier": 3,
         "tier_label": "Should know about",
         "name": "Emphysema / Hyperinflation",
@@ -545,7 +1031,7 @@
         "m4_action": "Confirm COPD history; PFTs; bronchodilators; smoking cessation counseling"
       },
       "focal_opacity": {
-        "detected": true,
+        "detected": false,
         "tier": 3,
         "tier_label": "Should know about",
         "name": "Focal Opacity / Nodule",
@@ -554,23 +1040,23 @@
       }
     },
     "metrics": {
-      "ctr": 0.2344,
-      "ptx_left_mean": 0.4939,
-      "ptx_right_mean": 0.4418,
-      "ptx_left_std": 0.2582,
-      "ptx_right_std": 0.2675,
-      "basal_opacity": 0.6619,
-      "bilateral_haze": 0.5817,
-      "diaphragm_pos": 0.9648,
-      "focal_variance": 0.0179,
-      "horiz_band": 0.0539
+      "ctr": 0.1465,
+      "ptx_left_mean": 0.733,
+      "ptx_right_mean": 0.6833,
+      "ptx_left_std": 0.1054,
+      "ptx_right_std": 0.1312,
+      "basal_opacity": 0.794,
+      "bilateral_haze": 0.6038,
+      "diaphragm_pos": 0.4883,
+      "focal_variance": 0.0135,
+      "horiz_band": 0.0577
     }
   },
   {
-    "image": "00000008_001.png",
+    "image": "00006586_002.png",
     "findings": {
       "cardiomegaly": {
-        "detected": true,
+        "detected": false,
         "tier": 2,
         "tier_label": "Should recognize",
         "name": "Cardiomegaly",
@@ -586,7 +1072,7 @@
         "m4_action": "Check tracheal deviation, breath sounds; if tension \u2192 needle decompression 2nd ICS MCL; order stat CXR/CT"
       },
       "pleural_effusion": {
-        "detected": true,
+        "detected": false,
         "tier": 2,
         "tier_label": "Should recognize",
         "name": "Pleural Effusion",
@@ -594,7 +1080,7 @@
         "m4_action": "Grade size; consider thoracentesis if large/symptomatic; work up exudate vs transudate (Light's criteria)"
       },
       "pulmonary_edema": {
-        "detected": true,
+        "detected": false,
         "tier": 1,
         "tier_label": "MUST recognize",
         "name": "Pulmonary Edema",
@@ -602,7 +1088,7 @@
         "m4_action": "Assess volume status, BNP, Echo; start diuresis (furosemide); monitor O\u2082 sat"
       },
       "consolidation": {
-        "detected": true,
+        "detected": false,
         "tier": 2,
         "tier_label": "Should recognize",
         "name": "Consolidation / Pneumonia",
@@ -618,7 +1104,7 @@
         "m4_action": "Encourage deep breathing/incentive spirometry; rule out obstructing lesion if lobar; chest PT"
       },
       "emphysema": {
-        "detected": true,
+        "detected": false,
         "tier": 3,
         "tier_label": "Should know about",
         "name": "Emphysema / Hyperinflation",
@@ -626,7 +1112,7 @@
         "m4_action": "Confirm COPD history; PFTs; bronchodilators; smoking cessation counseling"
       },
       "focal_opacity": {
-        "detected": true,
+        "detected": false,
         "tier": 3,
         "tier_label": "Should know about",
         "name": "Focal Opacity / Nodule",
@@ -635,16 +1121,907 @@
       }
     },
     "metrics": {
-      "ctr": 0.2441,
-      "ptx_left_mean": 0.4676,
-      "ptx_right_mean": 0.4838,
-      "ptx_left_std": 0.2505,
-      "ptx_right_std": 0.2427,
-      "basal_opacity": 0.6402,
-      "bilateral_haze": 0.597,
-      "diaphragm_pos": 0.9727,
-      "focal_variance": 0.0137,
-      "horiz_band": 0.0454
+      "ctr": 0.1504,
+      "ptx_left_mean": 0.7079,
+      "ptx_right_mean": 0.6321,
+      "ptx_left_std": 0.1157,
+      "ptx_right_std": 0.1739,
+      "basal_opacity": 0.7537,
+      "bilateral_haze": 0.6146,
+      "diaphragm_pos": 0.7148,
+      "focal_variance": 0.0093,
+      "horiz_band": 0.0501
+    }
+  },
+  {
+    "image": "00006586_003.png",
+    "findings": {
+      "cardiomegaly": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Cardiomegaly",
+        "description": "Cardiothoracic ratio > 0.50 on PA film",
+        "m4_action": "Assess for CHF, valvular disease; order Echo, BNP"
+      },
+      "pneumothorax": {
+        "detected": false,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Possible Pneumothorax",
+        "description": "Peripheral lucency with absent lung markings",
+        "m4_action": "Check tracheal deviation, breath sounds; if tension \u2192 needle decompression 2nd ICS MCL; order stat CXR/CT"
+      },
+      "pleural_effusion": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Pleural Effusion",
+        "description": "Basal opacification with meniscus / blunted costophrenic angle",
+        "m4_action": "Grade size; consider thoracentesis if large/symptomatic; work up exudate vs transudate (Light's criteria)"
+      },
+      "pulmonary_edema": {
+        "detected": false,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Pulmonary Edema",
+        "description": "Bilateral diffuse haziness, perihilar bat-wing pattern",
+        "m4_action": "Assess volume status, BNP, Echo; start diuresis (furosemide); monitor O\u2082 sat"
+      },
+      "consolidation": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Consolidation / Pneumonia",
+        "description": "Focal airspace opacity with or without air bronchograms",
+        "m4_action": "Determine CAP vs HAP; start empiric antibiotics per guidelines; follow up film in 6 wks"
+      },
+      "atelectasis": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Atelectasis",
+        "description": "Linear or lobar opacity with volume loss / tracheal shift",
+        "m4_action": "Encourage deep breathing/incentive spirometry; rule out obstructing lesion if lobar; chest PT"
+      },
+      "emphysema": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Emphysema / Hyperinflation",
+        "description": "Flat diaphragm, barrel chest, increased AP diameter",
+        "m4_action": "Confirm COPD history; PFTs; bronchodilators; smoking cessation counseling"
+      },
+      "focal_opacity": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Focal Opacity / Nodule",
+        "description": "Focal high-density region \u2014 nodule, mass, or infiltrate",
+        "m4_action": "Apply Fleischner Society guidelines for nodule follow-up; CT chest; consider PET if >8mm"
+      }
+    },
+    "metrics": {
+      "ctr": 0.1152,
+      "ptx_left_mean": 0.5915,
+      "ptx_right_mean": 0.571,
+      "ptx_left_std": 0.1504,
+      "ptx_right_std": 0.1472,
+      "basal_opacity": 0.6918,
+      "bilateral_haze": 0.5046,
+      "diaphragm_pos": 0.7383,
+      "focal_variance": 0.0062,
+      "horiz_band": 0.0377
+    }
+  },
+  {
+    "image": "00006586_004.png",
+    "findings": {
+      "cardiomegaly": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Cardiomegaly",
+        "description": "Cardiothoracic ratio > 0.50 on PA film",
+        "m4_action": "Assess for CHF, valvular disease; order Echo, BNP"
+      },
+      "pneumothorax": {
+        "detected": false,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Possible Pneumothorax",
+        "description": "Peripheral lucency with absent lung markings",
+        "m4_action": "Check tracheal deviation, breath sounds; if tension \u2192 needle decompression 2nd ICS MCL; order stat CXR/CT"
+      },
+      "pleural_effusion": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Pleural Effusion",
+        "description": "Basal opacification with meniscus / blunted costophrenic angle",
+        "m4_action": "Grade size; consider thoracentesis if large/symptomatic; work up exudate vs transudate (Light's criteria)"
+      },
+      "pulmonary_edema": {
+        "detected": true,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Pulmonary Edema",
+        "description": "Bilateral diffuse haziness, perihilar bat-wing pattern",
+        "m4_action": "Assess volume status, BNP, Echo; start diuresis (furosemide); monitor O\u2082 sat"
+      },
+      "consolidation": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Consolidation / Pneumonia",
+        "description": "Focal airspace opacity with or without air bronchograms",
+        "m4_action": "Determine CAP vs HAP; start empiric antibiotics per guidelines; follow up film in 6 wks"
+      },
+      "atelectasis": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Atelectasis",
+        "description": "Linear or lobar opacity with volume loss / tracheal shift",
+        "m4_action": "Encourage deep breathing/incentive spirometry; rule out obstructing lesion if lobar; chest PT"
+      },
+      "emphysema": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Emphysema / Hyperinflation",
+        "description": "Flat diaphragm, barrel chest, increased AP diameter",
+        "m4_action": "Confirm COPD history; PFTs; bronchodilators; smoking cessation counseling"
+      },
+      "focal_opacity": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Focal Opacity / Nodule",
+        "description": "Focal high-density region \u2014 nodule, mass, or infiltrate",
+        "m4_action": "Apply Fleischner Society guidelines for nodule follow-up; CT chest; consider PET if >8mm"
+      }
+    },
+    "metrics": {
+      "ctr": 0.1328,
+      "ptx_left_mean": 0.7122,
+      "ptx_right_mean": 0.6957,
+      "ptx_left_std": 0.1521,
+      "ptx_right_std": 0.1783,
+      "basal_opacity": 0.777,
+      "bilateral_haze": 0.6342,
+      "diaphragm_pos": 0.5898,
+      "focal_variance": 0.0114,
+      "horiz_band": 0.0458
+    }
+  },
+  {
+    "image": "00006586_005.png",
+    "findings": {
+      "cardiomegaly": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Cardiomegaly",
+        "description": "Cardiothoracic ratio > 0.50 on PA film",
+        "m4_action": "Assess for CHF, valvular disease; order Echo, BNP"
+      },
+      "pneumothorax": {
+        "detected": false,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Possible Pneumothorax",
+        "description": "Peripheral lucency with absent lung markings",
+        "m4_action": "Check tracheal deviation, breath sounds; if tension \u2192 needle decompression 2nd ICS MCL; order stat CXR/CT"
+      },
+      "pleural_effusion": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Pleural Effusion",
+        "description": "Basal opacification with meniscus / blunted costophrenic angle",
+        "m4_action": "Grade size; consider thoracentesis if large/symptomatic; work up exudate vs transudate (Light's criteria)"
+      },
+      "pulmonary_edema": {
+        "detected": true,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Pulmonary Edema",
+        "description": "Bilateral diffuse haziness, perihilar bat-wing pattern",
+        "m4_action": "Assess volume status, BNP, Echo; start diuresis (furosemide); monitor O\u2082 sat"
+      },
+      "consolidation": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Consolidation / Pneumonia",
+        "description": "Focal airspace opacity with or without air bronchograms",
+        "m4_action": "Determine CAP vs HAP; start empiric antibiotics per guidelines; follow up film in 6 wks"
+      },
+      "atelectasis": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Atelectasis",
+        "description": "Linear or lobar opacity with volume loss / tracheal shift",
+        "m4_action": "Encourage deep breathing/incentive spirometry; rule out obstructing lesion if lobar; chest PT"
+      },
+      "emphysema": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Emphysema / Hyperinflation",
+        "description": "Flat diaphragm, barrel chest, increased AP diameter",
+        "m4_action": "Confirm COPD history; PFTs; bronchodilators; smoking cessation counseling"
+      },
+      "focal_opacity": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Focal Opacity / Nodule",
+        "description": "Focal high-density region \u2014 nodule, mass, or infiltrate",
+        "m4_action": "Apply Fleischner Society guidelines for nodule follow-up; CT chest; consider PET if >8mm"
+      }
+    },
+    "metrics": {
+      "ctr": 0.1289,
+      "ptx_left_mean": 0.7651,
+      "ptx_right_mean": 0.5925,
+      "ptx_left_std": 0.1293,
+      "ptx_right_std": 0.2895,
+      "basal_opacity": 0.7682,
+      "bilateral_haze": 0.6369,
+      "diaphragm_pos": 0.623,
+      "focal_variance": 0.015,
+      "horiz_band": 0.0558
+    }
+  },
+  {
+    "image": "00006587_000.png",
+    "findings": {
+      "cardiomegaly": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Cardiomegaly",
+        "description": "Cardiothoracic ratio > 0.50 on PA film",
+        "m4_action": "Assess for CHF, valvular disease; order Echo, BNP"
+      },
+      "pneumothorax": {
+        "detected": false,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Possible Pneumothorax",
+        "description": "Peripheral lucency with absent lung markings",
+        "m4_action": "Check tracheal deviation, breath sounds; if tension \u2192 needle decompression 2nd ICS MCL; order stat CXR/CT"
+      },
+      "pleural_effusion": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Pleural Effusion",
+        "description": "Basal opacification with meniscus / blunted costophrenic angle",
+        "m4_action": "Grade size; consider thoracentesis if large/symptomatic; work up exudate vs transudate (Light's criteria)"
+      },
+      "pulmonary_edema": {
+        "detected": true,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Pulmonary Edema",
+        "description": "Bilateral diffuse haziness, perihilar bat-wing pattern",
+        "m4_action": "Assess volume status, BNP, Echo; start diuresis (furosemide); monitor O\u2082 sat"
+      },
+      "consolidation": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Consolidation / Pneumonia",
+        "description": "Focal airspace opacity with or without air bronchograms",
+        "m4_action": "Determine CAP vs HAP; start empiric antibiotics per guidelines; follow up film in 6 wks"
+      },
+      "atelectasis": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Atelectasis",
+        "description": "Linear or lobar opacity with volume loss / tracheal shift",
+        "m4_action": "Encourage deep breathing/incentive spirometry; rule out obstructing lesion if lobar; chest PT"
+      },
+      "emphysema": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Emphysema / Hyperinflation",
+        "description": "Flat diaphragm, barrel chest, increased AP diameter",
+        "m4_action": "Confirm COPD history; PFTs; bronchodilators; smoking cessation counseling"
+      },
+      "focal_opacity": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Focal Opacity / Nodule",
+        "description": "Focal high-density region \u2014 nodule, mass, or infiltrate",
+        "m4_action": "Apply Fleischner Society guidelines for nodule follow-up; CT chest; consider PET if >8mm"
+      }
+    },
+    "metrics": {
+      "ctr": 0.1484,
+      "ptx_left_mean": 0.6405,
+      "ptx_right_mean": 0.6251,
+      "ptx_left_std": 0.1732,
+      "ptx_right_std": 0.1573,
+      "basal_opacity": 0.7392,
+      "bilateral_haze": 0.637,
+      "diaphragm_pos": 0.5293,
+      "focal_variance": 0.0065,
+      "horiz_band": 0.0418
+    }
+  },
+  {
+    "image": "00006588_000.png",
+    "findings": {
+      "cardiomegaly": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Cardiomegaly",
+        "description": "Cardiothoracic ratio > 0.50 on PA film",
+        "m4_action": "Assess for CHF, valvular disease; order Echo, BNP"
+      },
+      "pneumothorax": {
+        "detected": false,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Possible Pneumothorax",
+        "description": "Peripheral lucency with absent lung markings",
+        "m4_action": "Check tracheal deviation, breath sounds; if tension \u2192 needle decompression 2nd ICS MCL; order stat CXR/CT"
+      },
+      "pleural_effusion": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Pleural Effusion",
+        "description": "Basal opacification with meniscus / blunted costophrenic angle",
+        "m4_action": "Grade size; consider thoracentesis if large/symptomatic; work up exudate vs transudate (Light's criteria)"
+      },
+      "pulmonary_edema": {
+        "detected": false,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Pulmonary Edema",
+        "description": "Bilateral diffuse haziness, perihilar bat-wing pattern",
+        "m4_action": "Assess volume status, BNP, Echo; start diuresis (furosemide); monitor O\u2082 sat"
+      },
+      "consolidation": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Consolidation / Pneumonia",
+        "description": "Focal airspace opacity with or without air bronchograms",
+        "m4_action": "Determine CAP vs HAP; start empiric antibiotics per guidelines; follow up film in 6 wks"
+      },
+      "atelectasis": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Atelectasis",
+        "description": "Linear or lobar opacity with volume loss / tracheal shift",
+        "m4_action": "Encourage deep breathing/incentive spirometry; rule out obstructing lesion if lobar; chest PT"
+      },
+      "emphysema": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Emphysema / Hyperinflation",
+        "description": "Flat diaphragm, barrel chest, increased AP diameter",
+        "m4_action": "Confirm COPD history; PFTs; bronchodilators; smoking cessation counseling"
+      },
+      "focal_opacity": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Focal Opacity / Nodule",
+        "description": "Focal high-density region \u2014 nodule, mass, or infiltrate",
+        "m4_action": "Apply Fleischner Society guidelines for nodule follow-up; CT chest; consider PET if >8mm"
+      }
+    },
+    "metrics": {
+      "ctr": 0.1523,
+      "ptx_left_mean": 0.7093,
+      "ptx_right_mean": 0.5804,
+      "ptx_left_std": 0.0931,
+      "ptx_right_std": 0.1995,
+      "basal_opacity": 0.6756,
+      "bilateral_haze": 0.5881,
+      "diaphragm_pos": 0.7773,
+      "focal_variance": 0.0061,
+      "horiz_band": 0.0447
+    }
+  },
+  {
+    "image": "00006588_001.png",
+    "findings": {
+      "cardiomegaly": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Cardiomegaly",
+        "description": "Cardiothoracic ratio > 0.50 on PA film",
+        "m4_action": "Assess for CHF, valvular disease; order Echo, BNP"
+      },
+      "pneumothorax": {
+        "detected": false,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Possible Pneumothorax",
+        "description": "Peripheral lucency with absent lung markings",
+        "m4_action": "Check tracheal deviation, breath sounds; if tension \u2192 needle decompression 2nd ICS MCL; order stat CXR/CT"
+      },
+      "pleural_effusion": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Pleural Effusion",
+        "description": "Basal opacification with meniscus / blunted costophrenic angle",
+        "m4_action": "Grade size; consider thoracentesis if large/symptomatic; work up exudate vs transudate (Light's criteria)"
+      },
+      "pulmonary_edema": {
+        "detected": false,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Pulmonary Edema",
+        "description": "Bilateral diffuse haziness, perihilar bat-wing pattern",
+        "m4_action": "Assess volume status, BNP, Echo; start diuresis (furosemide); monitor O\u2082 sat"
+      },
+      "consolidation": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Consolidation / Pneumonia",
+        "description": "Focal airspace opacity with or without air bronchograms",
+        "m4_action": "Determine CAP vs HAP; start empiric antibiotics per guidelines; follow up film in 6 wks"
+      },
+      "atelectasis": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Atelectasis",
+        "description": "Linear or lobar opacity with volume loss / tracheal shift",
+        "m4_action": "Encourage deep breathing/incentive spirometry; rule out obstructing lesion if lobar; chest PT"
+      },
+      "emphysema": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Emphysema / Hyperinflation",
+        "description": "Flat diaphragm, barrel chest, increased AP diameter",
+        "m4_action": "Confirm COPD history; PFTs; bronchodilators; smoking cessation counseling"
+      },
+      "focal_opacity": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Focal Opacity / Nodule",
+        "description": "Focal high-density region \u2014 nodule, mass, or infiltrate",
+        "m4_action": "Apply Fleischner Society guidelines for nodule follow-up; CT chest; consider PET if >8mm"
+      }
+    },
+    "metrics": {
+      "ctr": 0.0957,
+      "ptx_left_mean": 0.5523,
+      "ptx_right_mean": 0.5756,
+      "ptx_left_std": 0.1625,
+      "ptx_right_std": 0.1871,
+      "basal_opacity": 0.6381,
+      "bilateral_haze": 0.4979,
+      "diaphragm_pos": 0.7109,
+      "focal_variance": 0.0044,
+      "horiz_band": 0.0335
+    }
+  },
+  {
+    "image": "00006588_002.png",
+    "findings": {
+      "cardiomegaly": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Cardiomegaly",
+        "description": "Cardiothoracic ratio > 0.50 on PA film",
+        "m4_action": "Assess for CHF, valvular disease; order Echo, BNP"
+      },
+      "pneumothorax": {
+        "detected": false,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Possible Pneumothorax",
+        "description": "Peripheral lucency with absent lung markings",
+        "m4_action": "Check tracheal deviation, breath sounds; if tension \u2192 needle decompression 2nd ICS MCL; order stat CXR/CT"
+      },
+      "pleural_effusion": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Pleural Effusion",
+        "description": "Basal opacification with meniscus / blunted costophrenic angle",
+        "m4_action": "Grade size; consider thoracentesis if large/symptomatic; work up exudate vs transudate (Light's criteria)"
+      },
+      "pulmonary_edema": {
+        "detected": false,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Pulmonary Edema",
+        "description": "Bilateral diffuse haziness, perihilar bat-wing pattern",
+        "m4_action": "Assess volume status, BNP, Echo; start diuresis (furosemide); monitor O\u2082 sat"
+      },
+      "consolidation": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Consolidation / Pneumonia",
+        "description": "Focal airspace opacity with or without air bronchograms",
+        "m4_action": "Determine CAP vs HAP; start empiric antibiotics per guidelines; follow up film in 6 wks"
+      },
+      "atelectasis": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Atelectasis",
+        "description": "Linear or lobar opacity with volume loss / tracheal shift",
+        "m4_action": "Encourage deep breathing/incentive spirometry; rule out obstructing lesion if lobar; chest PT"
+      },
+      "emphysema": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Emphysema / Hyperinflation",
+        "description": "Flat diaphragm, barrel chest, increased AP diameter",
+        "m4_action": "Confirm COPD history; PFTs; bronchodilators; smoking cessation counseling"
+      },
+      "focal_opacity": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Focal Opacity / Nodule",
+        "description": "Focal high-density region \u2014 nodule, mass, or infiltrate",
+        "m4_action": "Apply Fleischner Society guidelines for nodule follow-up; CT chest; consider PET if >8mm"
+      }
+    },
+    "metrics": {
+      "ctr": 0.0996,
+      "ptx_left_mean": 0.5564,
+      "ptx_right_mean": 0.6248,
+      "ptx_left_std": 0.1872,
+      "ptx_right_std": 0.1551,
+      "basal_opacity": 0.6761,
+      "bilateral_haze": 0.4884,
+      "diaphragm_pos": 0.4707,
+      "focal_variance": 0.0046,
+      "horiz_band": 0.0324
+    }
+  },
+  {
+    "image": "00006588_003.png",
+    "findings": {
+      "cardiomegaly": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Cardiomegaly",
+        "description": "Cardiothoracic ratio > 0.50 on PA film",
+        "m4_action": "Assess for CHF, valvular disease; order Echo, BNP"
+      },
+      "pneumothorax": {
+        "detected": false,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Possible Pneumothorax",
+        "description": "Peripheral lucency with absent lung markings",
+        "m4_action": "Check tracheal deviation, breath sounds; if tension \u2192 needle decompression 2nd ICS MCL; order stat CXR/CT"
+      },
+      "pleural_effusion": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Pleural Effusion",
+        "description": "Basal opacification with meniscus / blunted costophrenic angle",
+        "m4_action": "Grade size; consider thoracentesis if large/symptomatic; work up exudate vs transudate (Light's criteria)"
+      },
+      "pulmonary_edema": {
+        "detected": false,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Pulmonary Edema",
+        "description": "Bilateral diffuse haziness, perihilar bat-wing pattern",
+        "m4_action": "Assess volume status, BNP, Echo; start diuresis (furosemide); monitor O\u2082 sat"
+      },
+      "consolidation": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Consolidation / Pneumonia",
+        "description": "Focal airspace opacity with or without air bronchograms",
+        "m4_action": "Determine CAP vs HAP; start empiric antibiotics per guidelines; follow up film in 6 wks"
+      },
+      "atelectasis": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Atelectasis",
+        "description": "Linear or lobar opacity with volume loss / tracheal shift",
+        "m4_action": "Encourage deep breathing/incentive spirometry; rule out obstructing lesion if lobar; chest PT"
+      },
+      "emphysema": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Emphysema / Hyperinflation",
+        "description": "Flat diaphragm, barrel chest, increased AP diameter",
+        "m4_action": "Confirm COPD history; PFTs; bronchodilators; smoking cessation counseling"
+      },
+      "focal_opacity": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Focal Opacity / Nodule",
+        "description": "Focal high-density region \u2014 nodule, mass, or infiltrate",
+        "m4_action": "Apply Fleischner Society guidelines for nodule follow-up; CT chest; consider PET if >8mm"
+      }
+    },
+    "metrics": {
+      "ctr": 0.084,
+      "ptx_left_mean": 0.5812,
+      "ptx_right_mean": 0.5956,
+      "ptx_left_std": 0.1802,
+      "ptx_right_std": 0.177,
+      "basal_opacity": 0.6141,
+      "bilateral_haze": 0.5424,
+      "diaphragm_pos": 0.8496,
+      "focal_variance": 0.0037,
+      "horiz_band": 0.0325
+    }
+  },
+  {
+    "image": "00006588_004.png",
+    "findings": {
+      "cardiomegaly": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Cardiomegaly",
+        "description": "Cardiothoracic ratio > 0.50 on PA film",
+        "m4_action": "Assess for CHF, valvular disease; order Echo, BNP"
+      },
+      "pneumothorax": {
+        "detected": false,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Possible Pneumothorax",
+        "description": "Peripheral lucency with absent lung markings",
+        "m4_action": "Check tracheal deviation, breath sounds; if tension \u2192 needle decompression 2nd ICS MCL; order stat CXR/CT"
+      },
+      "pleural_effusion": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Pleural Effusion",
+        "description": "Basal opacification with meniscus / blunted costophrenic angle",
+        "m4_action": "Grade size; consider thoracentesis if large/symptomatic; work up exudate vs transudate (Light's criteria)"
+      },
+      "pulmonary_edema": {
+        "detected": false,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Pulmonary Edema",
+        "description": "Bilateral diffuse haziness, perihilar bat-wing pattern",
+        "m4_action": "Assess volume status, BNP, Echo; start diuresis (furosemide); monitor O\u2082 sat"
+      },
+      "consolidation": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Consolidation / Pneumonia",
+        "description": "Focal airspace opacity with or without air bronchograms",
+        "m4_action": "Determine CAP vs HAP; start empiric antibiotics per guidelines; follow up film in 6 wks"
+      },
+      "atelectasis": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Atelectasis",
+        "description": "Linear or lobar opacity with volume loss / tracheal shift",
+        "m4_action": "Encourage deep breathing/incentive spirometry; rule out obstructing lesion if lobar; chest PT"
+      },
+      "emphysema": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Emphysema / Hyperinflation",
+        "description": "Flat diaphragm, barrel chest, increased AP diameter",
+        "m4_action": "Confirm COPD history; PFTs; bronchodilators; smoking cessation counseling"
+      },
+      "focal_opacity": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Focal Opacity / Nodule",
+        "description": "Focal high-density region \u2014 nodule, mass, or infiltrate",
+        "m4_action": "Apply Fleischner Society guidelines for nodule follow-up; CT chest; consider PET if >8mm"
+      }
+    },
+    "metrics": {
+      "ctr": 0.0879,
+      "ptx_left_mean": 0.5387,
+      "ptx_right_mean": 0.5885,
+      "ptx_left_std": 0.2253,
+      "ptx_right_std": 0.1568,
+      "basal_opacity": 0.6302,
+      "bilateral_haze": 0.53,
+      "diaphragm_pos": 0.8574,
+      "focal_variance": 0.0034,
+      "horiz_band": 0.0306
+    }
+  },
+  {
+    "image": "00006588_005.png",
+    "findings": {
+      "cardiomegaly": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Cardiomegaly",
+        "description": "Cardiothoracic ratio > 0.50 on PA film",
+        "m4_action": "Assess for CHF, valvular disease; order Echo, BNP"
+      },
+      "pneumothorax": {
+        "detected": false,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Possible Pneumothorax",
+        "description": "Peripheral lucency with absent lung markings",
+        "m4_action": "Check tracheal deviation, breath sounds; if tension \u2192 needle decompression 2nd ICS MCL; order stat CXR/CT"
+      },
+      "pleural_effusion": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Pleural Effusion",
+        "description": "Basal opacification with meniscus / blunted costophrenic angle",
+        "m4_action": "Grade size; consider thoracentesis if large/symptomatic; work up exudate vs transudate (Light's criteria)"
+      },
+      "pulmonary_edema": {
+        "detected": true,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Pulmonary Edema",
+        "description": "Bilateral diffuse haziness, perihilar bat-wing pattern",
+        "m4_action": "Assess volume status, BNP, Echo; start diuresis (furosemide); monitor O\u2082 sat"
+      },
+      "consolidation": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Consolidation / Pneumonia",
+        "description": "Focal airspace opacity with or without air bronchograms",
+        "m4_action": "Determine CAP vs HAP; start empiric antibiotics per guidelines; follow up film in 6 wks"
+      },
+      "atelectasis": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Atelectasis",
+        "description": "Linear or lobar opacity with volume loss / tracheal shift",
+        "m4_action": "Encourage deep breathing/incentive spirometry; rule out obstructing lesion if lobar; chest PT"
+      },
+      "emphysema": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Emphysema / Hyperinflation",
+        "description": "Flat diaphragm, barrel chest, increased AP diameter",
+        "m4_action": "Confirm COPD history; PFTs; bronchodilators; smoking cessation counseling"
+      },
+      "focal_opacity": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Focal Opacity / Nodule",
+        "description": "Focal high-density region \u2014 nodule, mass, or infiltrate",
+        "m4_action": "Apply Fleischner Society guidelines for nodule follow-up; CT chest; consider PET if >8mm"
+      }
+    },
+    "metrics": {
+      "ctr": 0.1191,
+      "ptx_left_mean": 0.6974,
+      "ptx_right_mean": 0.6924,
+      "ptx_left_std": 0.1349,
+      "ptx_right_std": 0.1259,
+      "basal_opacity": 0.7583,
+      "bilateral_haze": 0.6279,
+      "diaphragm_pos": 0.7109,
+      "focal_variance": 0.0063,
+      "horiz_band": 0.0455
+    }
+  },
+  {
+    "image": "00006589_000.png",
+    "findings": {
+      "cardiomegaly": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Cardiomegaly",
+        "description": "Cardiothoracic ratio > 0.50 on PA film",
+        "m4_action": "Assess for CHF, valvular disease; order Echo, BNP"
+      },
+      "pneumothorax": {
+        "detected": false,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Possible Pneumothorax",
+        "description": "Peripheral lucency with absent lung markings",
+        "m4_action": "Check tracheal deviation, breath sounds; if tension \u2192 needle decompression 2nd ICS MCL; order stat CXR/CT"
+      },
+      "pleural_effusion": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Pleural Effusion",
+        "description": "Basal opacification with meniscus / blunted costophrenic angle",
+        "m4_action": "Grade size; consider thoracentesis if large/symptomatic; work up exudate vs transudate (Light's criteria)"
+      },
+      "pulmonary_edema": {
+        "detected": true,
+        "tier": 1,
+        "tier_label": "MUST recognize",
+        "name": "Pulmonary Edema",
+        "description": "Bilateral diffuse haziness, perihilar bat-wing pattern",
+        "m4_action": "Assess volume status, BNP, Echo; start diuresis (furosemide); monitor O\u2082 sat"
+      },
+      "consolidation": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Consolidation / Pneumonia",
+        "description": "Focal airspace opacity with or without air bronchograms",
+        "m4_action": "Determine CAP vs HAP; start empiric antibiotics per guidelines; follow up film in 6 wks"
+      },
+      "atelectasis": {
+        "detected": false,
+        "tier": 2,
+        "tier_label": "Should recognize",
+        "name": "Atelectasis",
+        "description": "Linear or lobar opacity with volume loss / tracheal shift",
+        "m4_action": "Encourage deep breathing/incentive spirometry; rule out obstructing lesion if lobar; chest PT"
+      },
+      "emphysema": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Emphysema / Hyperinflation",
+        "description": "Flat diaphragm, barrel chest, increased AP diameter",
+        "m4_action": "Confirm COPD history; PFTs; bronchodilators; smoking cessation counseling"
+      },
+      "focal_opacity": {
+        "detected": false,
+        "tier": 3,
+        "tier_label": "Should know about",
+        "name": "Focal Opacity / Nodule",
+        "description": "Focal high-density region \u2014 nodule, mass, or infiltrate",
+        "m4_action": "Apply Fleischner Society guidelines for nodule follow-up; CT chest; consider PET if >8mm"
+      }
+    },
+    "metrics": {
+      "ctr": 0.1504,
+      "ptx_left_mean": 0.4739,
+      "ptx_right_mean": 0.5558,
+      "ptx_left_std": 0.2686,
+      "ptx_right_std": 0.2496,
+      "basal_opacity": 0.6373,
+      "bilateral_haze": 0.6435,
+      "diaphragm_pos": 0.7578,
+      "focal_variance": 0.0131,
+      "horiz_band": 0.0476
     }
   }
 ]

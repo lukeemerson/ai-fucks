@@ -986,3 +986,68 @@ constructor signature mypy-narrow.
 * `RadImageNetResNet50Backbone` (a CXR-pretrained ResNet50 variant) — separate PR.
 * Composition factory wiring (Step 3 of `PAPER_CHECKLIST.md`); the torch adapters are not yet returned by `build_v1_runner_*`.
 * Real-weight smoke tests (the unit suite uses `weights=None`).
+
+### 13.6 Publication factory wiring (Step 3)
+
+```harness/composition/factories.py``` ships a third factory in v1:
+
+```python
+def build_publication_runner_v1(
+    seed: int,
+    *,
+    nih_csv_path: Path,
+    nih_images_dir: Path,
+    artifact_root: Path,
+) -> RunnerBundle: ...
+```
+
+It wires the real on-disk pipeline: `NIHDataset` ->
+`IterativeStratifiedPatientSplitter` -> `TorchVisionResNet50Backbone`
+(default ImageNet weights, auto device) -> `SklearnGradientBoostingHead` ->
+`PerClassIsotonicCalibrator` -> `PrSweepShrinkageThreshold` ->
+`BootstrapMetrics` -> `FilesystemArtifactStore`. Per the §6.4 factory
+contract, sub-seeds are derived through `SeededRandomness.child_seed`
+with stable labels (`"backbone"`, `"head"`, `"bootstrap"`).
+
+Two divergences from the §6.4 fakes/sklearn factories are worth flagging.
+
+**(1) Decoding wrappers between the dataset and the torch backbone.** The
+runner's `_bytes_to_image_tensor` materialises every byte blob into a
+`(N, 4, 4, 2)` tensor (`BYTES_IMAGE_SHAPE`) before calling the backbone.
+That shape suits the fake adapter set but rejects ResNet50, which requires
+`C in {1, 3}`. Because `runner.py` is the stable single-source-of-truth
+for the experiment loop, the publication factory bridges the mismatch with
+two private wrappers in `harness/composition/_publication_pipeline.py`:
+
+* `_DecodingDataset` decodes each PNG via `NIHImageLoader.decode` to a
+  `(H, W, 1) float32 [0, 1]` tensor at `get_image_bytes` time, stashes
+  the array in a per-run `DecodedImageCache` keyed by `sha256(ref)[:32]`,
+  and returns those 32 bytes as the runner-visible blob. The byte-blob
+  round-trips exactly through `uint8 -> /255.0 -> *255.0 -> round` in
+  float32 (verified at composition time).
+* `_DecodingBackbone` recovers the cache key from each `(4, 4, 2)` row,
+  stacks the cached decoded images into `(N, H, W, 1)`, and forwards to
+  the wrapped `TorchVisionResNet50Backbone`.
+
+The wrappers implement the existing port protocols verbatim and are
+composition-internal; no new port surface is introduced. Lifetime of the
+side-channel cache is bounded by a single `run_experiment` call. v1.1 may
+refactor the runner to push bytes-to-tensor responsibility into the dataset
+adapter and remove the indirection.
+
+**(2) Adapter substitutions.** Three names from
+`PAPER_CHECKLIST.md` Step 3 do not exist verbatim in the codebase. The
+factory uses the implemented adapters and documents the substitution:
+
+| Brief calls for | Implemented as | Notes |
+| --------------- | -------------- | ----- |
+| `SklearnGBTHead` | `SklearnGradientBoostingHead` | Shipped this PR; `HistGradientBoostingClassifier`-backed, one per-label fit, deterministically seeded via `RandomnessPort.child_seed(seed, "head")`. |
+| `IsotonicCalibrator` | `PerClassIsotonicCalibrator` | Same algorithm, project naming. |
+| `PrSweepThreshold` | `PrSweepShrinkageThreshold` | Same algorithm; the implemented name advertises the shrinkage component. |
+| `SklearnMetrics` | `BootstrapMetrics` | Same scope (macro/per-class F1/AUROC/AUPRC + bootstrap CIs). |
+| `LocalFsArtifactStore` | `FilesystemArtifactStore` | Same role. |
+| `NumpySeededRandomness` | `SeededRandomness` (in `adapters/fakes/`) | Numpy-backed, seed-pure. The package placement reflects the v1 module layout; the implementation is production-grade. |
+
+`build_publication_runner_v1` therefore satisfies the spirit of §6.4 --
+factories are the only place adapters are instantiated outside tests, and
+the bundle is byte-identical in shape to `build_v1_runner_sklearn`.

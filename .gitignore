@@ -30,3 +30,6 @@ dist/
 # Generated dashboard output
 results/
 models/
+
+# Harness pilot/run artifacts
+runs/

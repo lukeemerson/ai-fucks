@@ -26,6 +26,7 @@ from harness.adapters.fakes.randomness import SeededRandomness
 from harness.adapters.fakes.splitter import DeterministicFakeSplitter
 from harness.adapters.fakes.threshold import FixedFakeThreshold
 from harness.adapters.fs.artifact_store import FilesystemArtifactStore
+from harness.adapters.fs.cached_backbone import CachedBackbone
 from harness.adapters.fs.nih_csv import NIH14_LABELS
 from harness.adapters.fs.nih_dataset import NIHDataset, NIHDatasetConfig
 from harness.adapters.sklearn.calibrator import (
@@ -43,6 +44,7 @@ from harness.composition._publication_pipeline import (
     _SubsettedDataset,
 )
 from harness.composition.runner import BYTES_IMAGE_SHAPE
+from harness.domain.errors import ConfigError
 from harness.domain.types import (
     BootstrapConfig,
     ExperimentConfig,
@@ -209,6 +211,7 @@ def build_publication_runner_v1(
     artifact_root: Path,
     n_samples: int | None = None,
     strict_missing_images: bool = True,
+    feature_cache_dir: Path | None = None,
 ) -> RunnerBundle:
     """The v1 publication recipe -- see ``PAPER_CHECKLIST.md`` Step 3.
 
@@ -222,6 +225,10 @@ def build_publication_runner_v1(
       with default ImageNet weights and auto-selected device, exposed through
       a private decoding wrapper that bridges the runner's
       ``BYTES_IMAGE_SHAPE`` pipeline to the backbone's NHWC float32 input.
+      When ``feature_cache_dir`` is supplied, the inner backbone is wrapped
+      in :class:`~harness.adapters.fs.cached_backbone.CachedBackbone` *before*
+      the decoding wrapper -- so cache writes happen on the resized
+      ``(N, 224, 224, 1)`` tensor that ResNet50 actually consumes.
     * :class:`~harness.adapters.sklearn.head.SklearnGradientBoostingHead` --
       one :class:`HistGradientBoostingClassifier` per output label, seeded
       deterministically from a child seed of ``seed`` (see ``"head"`` label
@@ -277,6 +284,12 @@ def build_publication_runner_v1(
             by the underlying adapter). Set False when running on a partial
             NIH dump (e.g. the public 5k sample). The default is True so
             production runs surface dataset integrity issues.
+        feature_cache_dir: If set, ResNet50 features are cached to this
+            directory (sharded by backbone identifier and image hash). On
+            cache hit, feature extraction is skipped -- useful for ablation
+            runs where head/calibrator/threshold change but the backbone
+            does not. Default ``None`` means no caching (every run
+            re-extracts).
 
     Returns:
         A :class:`RunnerBundle` ready to be unpacked into
@@ -318,7 +331,23 @@ def build_publication_runner_v1(
     dataset = _DecodingDataset(
         sized_dataset, cache, image_size=_PUBLICATION_IMAGE_SIZE
     )
-    inner_backbone = TorchVisionResNet50Backbone(seed=backbone_seed)
+    inner_backbone: BackbonePort = TorchVisionResNet50Backbone(seed=backbone_seed)
+    if feature_cache_dir is not None:
+        # Validate the cache path early so configuration mistakes surface as a
+        # ``ConfigError`` from the factory, not as an opaque failure mid-run.
+        if feature_cache_dir.exists() and not feature_cache_dir.is_dir():
+            raise ConfigError(
+                f"feature_cache_dir {feature_cache_dir!r} exists but is not a "
+                f"directory"
+            )
+        feature_cache_dir.mkdir(parents=True, exist_ok=True)
+        # Order matters: wrap the torch backbone in CachedBackbone *before* the
+        # _DecodingBackbone so the cache stores the (224, 224, 1) tensor that
+        # ResNet50 actually consumes (rather than the runner's (4, 4, 2)
+        # bytes-tensor key, which would be useless across runs).
+        inner_backbone = CachedBackbone(
+            inner=inner_backbone, cache_dir=feature_cache_dir
+        )
     backbone = _DecodingBackbone(
         inner_backbone, cache, image_size=_PUBLICATION_IMAGE_SIZE
     )

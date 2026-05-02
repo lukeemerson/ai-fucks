@@ -1051,3 +1051,96 @@ factory uses the implemented adapters and documents the substitution:
 `build_publication_runner_v1` therefore satisfies the spirit of §6.4 --
 factories are the only place adapters are instantiated outside tests, and
 the bundle is byte-identical in shape to `build_v1_runner_sklearn`.
+
+### 13.7 Step 3.5 — Feature cache + ablation runner
+
+Step 3.5 in `PAPER_CHECKLIST.md` adds two coupled pieces on top of the
+publication factory: a content-addressable feature cache (so the expensive
+ResNet50 forward pass runs at most once per unique input image) and a
+seed-grid ablation CLI (so multi-variant comparisons reuse that cache).
+
+**`CachedBackbone` adapter (`harness/adapters/fs/cached_backbone.py`).**
+
+* Wraps any `BackbonePort`. Inner adapter must expose a non-empty `identifier`
+  string; without one the cache cannot scope its layout safely (a backbone
+  swap would silently return stale features). Construction raises
+  `AdapterError` if the identifier is missing.
+* Cache key is `sha256(image.tobytes())` over each row of the input
+  `(N, H, W, C) float32` tensor — content-addressable, so the same image
+  bytes produce the same cache file regardless of the source CSV /
+  `images_dir`.
+* On-disk layout: `{cache_dir}/{backbone_id}/{sha[:2]}/{sha}.npy`. Two-char
+  prefix sharding keeps any single directory under ~256 children even at the
+  full 112k NIH corpus.
+* Atomic writes via `*.npy.tmp` + `Path.replace`; a crash mid-write leaves no
+  partial `.npy` for a future run to mistakenly load.
+* Per-row hashing with batched miss extraction: rows that hit the cache are
+  read directly; misses are stacked into a single batch and forwarded to the
+  inner backbone in one call (preserving input order in the output).
+* The wrapper's own `identifier` is `cached:<inner_id>` so downstream
+  consumers (model card, lineage tracking) see the cache layer in the
+  recorded backbone identifier.
+
+**Factory parameter: `feature_cache_dir`.**
+
+`build_publication_runner_v1(..., feature_cache_dir: Path | None = None)`:
+
+* `None` (default): no caching, every run re-extracts (preserves the prior
+  Step 3 behaviour byte-for-byte).
+* `Path`: the factory creates the directory if it does not exist (`mkdir
+  parents=True, exist_ok=True`), validates that an existing path is a
+  directory (raising `ConfigError` otherwise), and wraps the inner
+  `TorchVisionResNet50Backbone` in `CachedBackbone` **before** the
+  `_DecodingBackbone` wrapper. Wrap order matters: cache writes happen on
+  the resized `(N, 224, 224, 1)` tensor that ResNet50 actually consumes,
+  not on the runner's `(4, 4, 2)` byte-key tensor (which would be useless
+  across runs).
+
+**Ablation runner: `harness/scripts/run_ablation.py`.**
+
+A CLI that runs the publication pipeline once per master seed against a
+shared `feature_cache_dir`. v1 variant axis = master seed only. Args:
+`--seeds` (required, comma-separated unique ints), `--nih-csv`,
+`--nih-images`, `--n` (default 0 = full), `--feature-cache-dir`
+(required — caching is the whole point), `--strict-missing-images`
+(BooleanOptionalAction, default True), `--artifact-root`
+(default `runs/ablation-<UTC-timestamp>/`).
+
+Per-seed artifacts land under `<artifact-root>/seed-<n>/`. After every seed
+runs, the script writes `<artifact-root>/comparison.csv` with columns:
+
+```
+seed, macro_f1, macro_f1_ci_low, macro_f1_ci_high, macro_auroc, macro_auprc
+```
+
+If a seed raises mid-run, the exception is logged to stderr (`seed=<n>
+failed: <repr>`) and the loop continues with the remaining seeds. The
+script exits 1 if any seed failed, 0 otherwise. `comparison.csv` includes
+only the seeds that completed successfully.
+
+**v1 deviations.**
+
+* The cache is single-process; there is no inter-process locking. Concurrent
+  ablation runs against the same `feature_cache_dir` may duplicate work
+  (atomic rename prevents corruption) but must not be relied on for
+  correctness across truly-concurrent writers.
+* Cache keys are content-addressable. The same image bytes produce the same
+  cache file across CSVs, image directories, and pilot truncations. This is
+  intentional and deduplicates work across runs; callers who want
+  per-experiment isolation must supply distinct `feature_cache_dir` paths.
+* No cache eviction. Bounded by dataset size in practice (≤ 112k entries
+  for full NIH); explicit cache hygiene is the operator's responsibility.
+* `comparison.csv` is overwritten each run if `artifact-root` is reused;
+  the script does not version the file.
+
+**Deferred to v1.1+.**
+
+* Variant axes beyond seed (head, calibrator, threshold). When they land,
+  the runner grows additional `--variant-*` flags rather than a new entry
+  point.
+* Concurrent-safe cache writes (file locking or per-writer scratch
+  directories).
+* Cache eviction policy (LRU, size-bounded).
+* Distributed feature extraction (sharded across machines or processes).
+* Patient-block-aligned `--n` truncation (currently inherits the same
+  mid-patient truncation semantics as `run_pilot.py`).

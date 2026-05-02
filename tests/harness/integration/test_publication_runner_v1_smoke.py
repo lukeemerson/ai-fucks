@@ -149,3 +149,57 @@ def test_publication_runner_v1_strict_missing_images_false_drops_rows(
 
     # The 4 fake rows were dropped; only the 16 fixture rows survive.
     assert len(bundle.dataset.load().samples) == 16
+
+
+@pytest.mark.smoke
+@pytest.mark.torch
+def test_publication_runner_v1_feature_cache_dir_populates_npy_files(
+    tmp_path: Path,
+) -> None:
+    """``feature_cache_dir=...`` causes the run to populate per-image .npy files.
+
+    With the cache wired, after one full ``run_experiment`` the cache directory
+    contains at least one ``.npy`` file under the backbone-id subtree. This is
+    Wave 2's RED-test for Step 3.5: the factory must wrap the inner backbone
+    in :class:`CachedBackbone` *before* the ``_DecodingBackbone`` wrapper so
+    cache writes happen on the resized 224x224 tensor passed to ResNet50.
+    """
+    if not _FIXTURE_CSV.is_file() or not _FIXTURE_IMAGES.is_dir():
+        pytest.skip(
+            f"NIH fixture not found at {_FIXTURE_ROOT}; "
+            f"expected {_FIXTURE_CSV} and {_FIXTURE_IMAGES}"
+        )
+
+    cache_dir = tmp_path / "feature-cache"
+    artifact_root = tmp_path / "artifacts"
+
+    bundle = build_publication_runner_v1(
+        seed=0,
+        nih_csv_path=_FIXTURE_CSV,
+        nih_images_dir=_FIXTURE_IMAGES,
+        artifact_root=artifact_root,
+        feature_cache_dir=cache_dir,
+    )
+
+    run_experiment(
+        bundle.config,
+        dataset=bundle.dataset,
+        splitter=bundle.splitter,
+        backbone=bundle.backbone,
+        head=bundle.head,
+        calibrator=bundle.calibrator,
+        thresholds=bundle.thresholds,
+        metrics=bundle.metrics,
+        store=bundle.store,
+        randomness=bundle.randomness,
+    )
+
+    # Cache root exists and contains at least one .npy under the
+    # backbone-identifier subtree (CachedBackbone uses ``inner.identifier``
+    # as the second path segment).
+    assert cache_dir.is_dir()
+    npy_files = list(cache_dir.rglob("*.npy"))
+    assert len(npy_files) > 0, (
+        f"expected the feature cache to be populated under {cache_dir!r}, "
+        f"but found no .npy files"
+    )

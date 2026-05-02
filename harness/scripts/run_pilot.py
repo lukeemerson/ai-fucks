@@ -108,6 +108,16 @@ def _build_arg_parser() -> argparse.ArgumentParser:
             "partial dataset dumps (e.g. the public 5k sample). Default: on."
         ),
     )
+    parser.add_argument(
+        "--feature-cache-dir",
+        type=Path,
+        default=None,
+        help=(
+            "If set, cache ResNet50 features under this directory. "
+            "Subsequent runs skip extraction for cache hits. Default: "
+            "no caching."
+        ),
+    )
     return parser
 
 
@@ -174,6 +184,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         artifact_root=artifact_root,
         n_samples=n_samples,
         strict_missing_images=args.strict_missing_images,
+        feature_cache_dir=args.feature_cache_dir,
     )
     if n_samples is not None:
         actual = len(bundle.dataset.load().samples)

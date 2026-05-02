@@ -11,11 +11,14 @@ Note: this contract follows the numpy-array shape variant of the spec --
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 from numpy.typing import NDArray
 
 from harness.adapters.fakes.backbone import IdentityFakeBackbone
+from harness.adapters.fs.cached_backbone import CachedBackbone
 from harness.domain.errors import AdapterError
 from harness.ports.backbone import BackbonePort
 
@@ -137,3 +140,50 @@ class TestTorchVisionDenseNet121BackboneContract(BackbonePortContract):
         from harness.adapters.torch.backbone import TorchVisionDenseNet121Backbone
 
         return TorchVisionDenseNet121Backbone(seed=0, weights=None, device="cpu")
+
+
+# ---------------------------------------------------------------------------
+# CachedBackbone (filesystem cache wrapping any inner BackbonePort).
+#
+# Uses the IdentityFakeBackbone as inner so the suite stays in the default
+# fast tier (no torch). ``tmp_path`` makes the cache dir test-isolated.
+# A small adapter class gives the fake an ``identifier`` (CachedBackbone
+# requires one for cache scoping; IdentityFakeBackbone doesn't expose one).
+# ---------------------------------------------------------------------------
+
+
+class _IdentifiedFake:
+    """IdentityFakeBackbone wrapper that adds an ``identifier`` property.
+
+    Stays in the contract-test module (not in adapters/fakes/) because it is
+    test scaffolding for the cache contract, not a shipping adapter.
+    """
+
+    def __init__(self, image_shape: tuple[int, int, int], identifier: str) -> None:
+        self._inner = IdentityFakeBackbone(image_shape=image_shape)
+        self._identifier = identifier
+
+    @property
+    def embedding_dim(self) -> int:
+        return self._inner.embedding_dim
+
+    @property
+    def identifier(self) -> str:
+        return self._identifier
+
+    def extract(self, images: NDArray[np.float32]) -> NDArray[np.float32]:
+        return self._inner.extract(images)
+
+
+class TestCachedBackboneContract(BackbonePortContract):
+    image_h = 4
+    image_w = 4
+    image_c = 1
+
+    @pytest.fixture
+    def adapter(self, tmp_path: Path) -> BackbonePort:
+        inner = _IdentifiedFake(
+            image_shape=(self.image_h, self.image_w, self.image_c),
+            identifier="contract-fake",
+        )
+        return CachedBackbone(inner=inner, cache_dir=tmp_path)

@@ -15,6 +15,7 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 from harness.adapters.fakes.artifact_store import InMemoryFakeArtifactStore
 from harness.adapters.fakes.backbone import IdentityFakeBackbone
@@ -34,6 +35,7 @@ from harness.adapters.sklearn.calibrator import (
     PerClassPlattCalibrator,
 )
 from harness.adapters.sklearn.head import SklearnGradientBoostingHead
+from harness.adapters.sklearn.lr_head import SklearnLogisticRegressionHead
 from harness.adapters.sklearn.metrics import BootstrapMetrics
 from harness.adapters.sklearn.splitter import IterativeStratifiedPatientSplitter
 from harness.adapters.sklearn.threshold import PrSweepShrinkageThreshold
@@ -62,6 +64,8 @@ from harness.ports.splitter import SplitterPort
 from harness.ports.threshold import ThresholdPort
 
 __all__ = [
+    "BackboneChoice",
+    "HeadChoice",
     "RunnerBundle",
     "build_publication_runner_v1",
     "build_v1_runner_sklearn",
@@ -75,6 +79,27 @@ _LABEL_NAMES: tuple[str, ...] = (
     "atelectasis",
 )
 _DATASET_NAME = "fake-cxr-v1"
+
+# Discriminator for ``build_publication_runner_v1(head=...)``.
+# - ``"hgbt"`` (default for backwards-compat with the Step 3 PR): the
+#   :class:`SklearnGradientBoostingHead`.
+# - ``"lr"`` (recommended per the TXRV-embedding ablation): the
+#   :class:`SklearnLogisticRegressionHead` with ``class_weight='balanced'``.
+#   Lifted macro-F1 from 0.094 (HGBT) to 0.157 on identical TXRV features
+#   by rescuing five previously-zero classes; ~zero AUROC cost. The brief
+#   defers the default flip to a follow-up PR so the existing baseline
+#   numbers remain reproducible without an opt-in.
+HeadChoice = Literal["hgbt", "lr"]
+
+# Discriminator for ``build_publication_runner_v1(backbone=...)``.
+# - ``"resnet50"`` (default for backwards-compat with the Step 3 PR):
+#   :class:`TorchVisionResNet50Backbone`, ImageNet weights, 2048-dim features.
+# - ``"txrv-densenet121"``: :class:`TXRVDenseNet121NIHBackbone`, NIH-pretrained
+#   DenseNet121, 1024-dim features. CXR-pretrained features lifted macro-AUROC
+#   over the ResNet50/ImageNet baseline in the embedding ablation
+#   (``/tmp/txrv_embed_ablation/run.py``: 0.643 -> 0.697 on n=4998). Default
+#   flip is deferred so existing baselines remain reproducible.
+BackboneChoice = Literal["resnet50", "txrv-densenet121"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -203,6 +228,40 @@ def build_v1_runner_sklearn(seed: int) -> RunnerBundle:
 _PUBLICATION_IMAGE_SIZE: tuple[int, int] = (224, 224)
 
 
+def _build_inner_backbone(
+    *, choice: BackboneChoice, seed: int
+) -> tuple[BackbonePort, str, str]:
+    """Construct the inner backbone for ``build_publication_runner_v1``.
+
+    Returns ``(backbone, backbone_id, experiment_name_suffix)`` where
+    ``backbone_id`` is recorded in the :class:`ExperimentConfig` and
+    ``experiment_name_suffix`` differentiates artifact paths between
+    variants. The torch / torchxrayvision imports are local to this helper
+    so the harness public surface stays importable on machines without the
+    ``[experiment]`` extras installed.
+    """
+    if choice == "resnet50":
+        from harness.adapters.torch.backbone import TorchVisionResNet50Backbone
+
+        return (
+            TorchVisionResNet50Backbone(seed=seed),
+            "torchvision.resnet50",
+            "resnet50-imagenet",
+        )
+    if choice == "txrv-densenet121":
+        from harness.adapters.torch.txrv_backbone import TXRVDenseNet121NIHBackbone
+
+        return (
+            TXRVDenseNet121NIHBackbone(seed=seed),
+            "txrv-densenet121-res224-nih",
+            "txrv-densenet121-nih",
+        )
+    raise ConfigError(
+        f"unknown backbone choice {choice!r}; expected one of "
+        f"'resnet50', 'txrv-densenet121'"
+    )
+
+
 def build_publication_runner_v1(
     seed: int,
     *,
@@ -212,6 +271,8 @@ def build_publication_runner_v1(
     n_samples: int | None = None,
     strict_missing_images: bool = True,
     feature_cache_dir: Path | None = None,
+    head: HeadChoice = "hgbt",
+    backbone: BackboneChoice = "resnet50",
 ) -> RunnerBundle:
     """The v1 publication recipe -- see ``PAPER_CHECKLIST.md`` Step 3.
 
@@ -221,14 +282,26 @@ def build_publication_runner_v1(
       NIH ChestX-ray14 manifest + flat PNG corpus.
     * :class:`~harness.adapters.sklearn.splitter.IterativeStratifiedPatientSplitter`
       for the patient-level multi-label stratified split.
-    * :class:`~harness.adapters.torch.backbone.TorchVisionResNet50Backbone`
-      with default ImageNet weights and auto-selected device, exposed through
-      a private decoding wrapper that bridges the runner's
-      ``BYTES_IMAGE_SHAPE`` pipeline to the backbone's NHWC float32 input.
-      When ``feature_cache_dir`` is supplied, the inner backbone is wrapped
-      in :class:`~harness.adapters.fs.cached_backbone.CachedBackbone` *before*
+    * One of the supported backbones (selected via the ``backbone`` kwarg):
+
+      - ``"resnet50"`` (default):
+        :class:`~harness.adapters.torch.backbone.TorchVisionResNet50Backbone`
+        with default ImageNet weights -- 2048-dim features.
+      - ``"txrv-densenet121"``:
+        :class:`~harness.adapters.torch.txrv_backbone.TXRVDenseNet121NIHBackbone`
+        with NIH-pretrained weights -- 1024-dim features. Lifts macro-AUROC
+        over the ImageNet baseline in the embedding ablation
+        (``/tmp/txrv_embed_ablation/run.py``: 0.643 -> 0.697 on n=4998).
+
+      Both adapters are exposed through a private decoding wrapper that
+      bridges the runner's ``BYTES_IMAGE_SHAPE`` pipeline to the backbone's
+      NHWC float32 input. When ``feature_cache_dir`` is supplied, the inner
+      backbone is wrapped in
+      :class:`~harness.adapters.fs.cached_backbone.CachedBackbone` *before*
       the decoding wrapper -- so cache writes happen on the resized
-      ``(N, 224, 224, 1)`` tensor that ResNet50 actually consumes.
+      ``(N, 224, 224, 1)`` tensor that the underlying network actually
+      consumes. The cache shards by ``backbone.identifier`` so swapping
+      variants does not return stale features.
     * :class:`~harness.adapters.sklearn.head.SklearnGradientBoostingHead` --
       one :class:`HistGradientBoostingClassifier` per output label, seeded
       deterministically from a child seed of ``seed`` (see ``"head"`` label
@@ -249,10 +322,6 @@ def build_publication_runner_v1(
       ``adapters/fakes/`` -- it is numpy-backed, deterministic, and the only
       adapter implementing the port. A future ``adapters/sklearn/randomness.py``
       could rename it without changing semantics.
-
-    The :class:`TorchVisionResNet50Backbone` import is local to this function
-    so that the rest of the harness public surface remains importable on
-    machines without the ``[experiment]`` extras installed.
 
     Sub-seeds are derived deterministically via ``RandomnessPort.child_seed``
     with stable labels (``"backbone"``, ``"head"``, ``"bootstrap"``) so two
@@ -284,22 +353,34 @@ def build_publication_runner_v1(
             by the underlying adapter). Set False when running on a partial
             NIH dump (e.g. the public 5k sample). The default is True so
             production runs surface dataset integrity issues.
-        feature_cache_dir: If set, ResNet50 features are cached to this
+        feature_cache_dir: If set, backbone features are cached to this
             directory (sharded by backbone identifier and image hash). On
             cache hit, feature extraction is skipped -- useful for ablation
             runs where head/calibrator/threshold change but the backbone
             does not. Default ``None`` means no caching (every run
             re-extracts).
+        head: Which classifier head to wire. ``"hgbt"`` (default) keeps the
+            Step 3 :class:`SklearnGradientBoostingHead` for backwards-compat
+            with prior runs. ``"lr"`` selects the
+            :class:`SklearnLogisticRegressionHead` (one binary LR per label,
+            ``class_weight='balanced'``) which is the **recommended** head
+            per the TXRV-embedding ablation: macro-F1 0.094 -> 0.157
+            (+0.063) by rescuing five previously-zero classes (Mass,
+            Consolidation, Edema, Fibrosis, Pleural_Thickening) at ~zero
+            AUROC cost. The default flip is deferred to a follow-up PR so
+            existing Step 3 baselines remain reproducible without an opt-in.
+        backbone: Which feature-extraction backbone to wire. ``"resnet50"``
+            (default) keeps the Step 3 :class:`TorchVisionResNet50Backbone`
+            for backwards-compat. ``"txrv-densenet121"`` selects the
+            :class:`TXRVDenseNet121NIHBackbone` (NIH-pretrained DenseNet121,
+            1024-dim features) -- the **recommended** backbone per the
+            embedding ablation: macro-AUROC 0.643 -> 0.697 (+0.054) on
+            identical downstream pipeline, no model training.
 
     Returns:
         A :class:`RunnerBundle` ready to be unpacked into
         :func:`harness.composition.runner.run_experiment`.
     """
-    # Local import: torchvision is gated behind the ``[experiment]`` extras
-    # group. Importing inside the function keeps ``harness`` importable on
-    # CI / dev machines that haven't installed torch.
-    from harness.adapters.torch.backbone import TorchVisionResNet50Backbone
-
     randomness = SeededRandomness()
     backbone_seed = randomness.child_seed(seed, "backbone")
     head_seed = randomness.child_seed(seed, "head")
@@ -331,7 +412,9 @@ def build_publication_runner_v1(
     dataset = _DecodingDataset(
         sized_dataset, cache, image_size=_PUBLICATION_IMAGE_SIZE
     )
-    inner_backbone: BackbonePort = TorchVisionResNet50Backbone(seed=backbone_seed)
+    inner_backbone, backbone_id, name_suffix = _build_inner_backbone(
+        choice=backbone, seed=backbone_seed
+    )
     if feature_cache_dir is not None:
         # Validate the cache path early so configuration mistakes surface as a
         # ``ConfigError`` from the factory, not as an opaque failure mid-run.
@@ -341,20 +424,33 @@ def build_publication_runner_v1(
                 f"directory"
             )
         feature_cache_dir.mkdir(parents=True, exist_ok=True)
-        # Order matters: wrap the torch backbone in CachedBackbone *before* the
-        # _DecodingBackbone so the cache stores the (224, 224, 1) tensor that
-        # ResNet50 actually consumes (rather than the runner's (4, 4, 2)
-        # bytes-tensor key, which would be useless across runs).
+        # Order matters: wrap the inner backbone in CachedBackbone *before*
+        # the _DecodingBackbone so the cache stores the (224, 224, 1) tensor
+        # that the network actually consumes (rather than the runner's
+        # (4, 4, 2) bytes-tensor key, which would be useless across runs).
+        # CachedBackbone shards by ``inner.identifier`` so resnet50 and
+        # txrv-densenet121 features land in distinct subdirectories.
         inner_backbone = CachedBackbone(
             inner=inner_backbone, cache_dir=feature_cache_dir
         )
-    backbone = _DecodingBackbone(
+    decoded_backbone = _DecodingBackbone(
         inner_backbone, cache, image_size=_PUBLICATION_IMAGE_SIZE
     )
 
     n_labels = len(NIH14_LABELS)
+    head_port: ClassifierHeadPort
+    if head == "lr":
+        head_port = SklearnLogisticRegressionHead(
+            n_labels=n_labels, seed=head_seed
+        )
+        head_id = "sklearn-logistic-regression"
+    else:
+        head_port = SklearnGradientBoostingHead(
+            n_labels=n_labels, seed=head_seed
+        )
+        head_id = "sklearn-gradient-boosting"
     config = ExperimentConfig(
-        experiment_name="v1-publication-resnet50-imagenet",
+        experiment_name=f"v1-publication-{name_suffix}",
         dataset_name="nih-cxr14",
         label_names=NIH14_LABELS,
         val_fraction=0.2,
@@ -366,13 +462,13 @@ def build_publication_runner_v1(
         threshold=ThresholdConfig(
             method="pr_sweep", shrinkage=0.5, clamp_lo=0.05, clamp_hi=0.95
         ),
-        backbone_id="torchvision.resnet50",
-        head_id="sklearn-gradient-boosting",
+        backbone_id=backbone_id,
+        head_id=head_id,
         calibrator_id="sklearn-isotonic",
         artifact_root=str(artifact_root),
         notes=(
-            "Publication v1 wiring: NIH-14 + ResNet50 ImageNet + "
-            "sklearn HistGradientBoosting head + isotonic calibrator + "
+            f"Publication v1 wiring: NIH-14 + {backbone_id} + "
+            f"sklearn {head_id} head + isotonic calibrator + "
             f"PR-sweep thresholds @ seed={seed}. "
             "Calibrator and threshold tuner are co-fit on the same val fold "
             "(see ARCHITECTURE.md §13.1)."
@@ -383,8 +479,8 @@ def build_publication_runner_v1(
         config=config,
         dataset=dataset,
         splitter=IterativeStratifiedPatientSplitter(),
-        backbone=backbone,
-        head=SklearnGradientBoostingHead(n_labels=n_labels, seed=head_seed),
+        backbone=decoded_backbone,
+        head=head_port,
         calibrator=PerClassIsotonicCalibrator(),
         thresholds=PrSweepShrinkageThreshold(),
         metrics=BootstrapMetrics(),

@@ -134,3 +134,38 @@ class TestSklearnGradientBoostingHeadContract(ClassifierHeadPortContract):
 
         # Return a zero-arg callable mimicking a class.
         return _Factory()  # type: ignore[return-value]  # reason: factory protocol shim
+
+
+# Fast fit budget for the LR contract subclass. The contract assertions are
+# shape / dtype / determinism / unit-interval -- none require the production
+# default (1000) iterations. lbfgs converges on the contract's small synthetic
+# data well within 50 iterations; keeping this low keeps the default suite
+# under its < 5s wall-clock budget.
+_LR_CONTRACT_MAX_ITER: int = 50
+
+
+class TestSklearnLogisticRegressionHeadContract(ClassifierHeadPortContract):
+    @pytest.fixture
+    def adapter(self) -> ClassifierHeadPort:
+        from harness.adapters.sklearn.lr_head import SklearnLogisticRegressionHead
+
+        return SklearnLogisticRegressionHead(
+            n_labels=self.n_labels, seed=0, max_iter=_LR_CONTRACT_MAX_ITER
+        )
+
+    @pytest.fixture
+    def adapter_factory(self) -> type[ClassifierHeadPort]:
+        from harness.adapters.sklearn.lr_head import SklearnLogisticRegressionHead
+
+        n_labels = self.n_labels
+
+        class _Factory:
+            def __call__(self) -> ClassifierHeadPort:
+                return SklearnLogisticRegressionHead(
+                    n_labels=n_labels,
+                    seed=0,
+                    max_iter=_LR_CONTRACT_MAX_ITER,
+                )
+
+        # Return a zero-arg callable mimicking a class.
+        return _Factory()  # type: ignore[return-value]  # reason: factory protocol shim

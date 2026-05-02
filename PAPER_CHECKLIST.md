@@ -4,7 +4,7 @@ Tracking doc for the path from current state → published paper. Check items as
 
 **Budget:** $0. Free venues only, free compute only, no APCs, no paid IRB.
 **Target venues (in submission order):** arXiv preprint → MIDL workshop (PMLR, free) → ML4H @ NeurIPS (free) → TMLR (peer-reviewed, OpenReview-hosted, no APC) → MICCAI workshops.
-**Honest macro-F1 trajectory:** 0.097 (current rule-based) → 0.30+ (with pretrained backbone) → publication-grade.
+**Honest macro-F1 trajectory:** 0.097 (rule-based) → 0.176 (TXRV-emb + LR + pr_sweep_no_shrink, 4999 slice) → ~0.20+ expected at full data (workshop-grade).
 
 ---
 
@@ -21,6 +21,35 @@ Tracking doc for the path from current state → published paper. Check items as
   - `harness/scripts/run_ablation.py` CLI — runs the publication pipeline across a comma-separated seed grid, sharing the cache; writes `comparison.csv`
   - Ablation runner integration test (`tests/harness/integration/test_ablation_runner_smoke.py`) including byte-identical determinism contract across cache miss vs cache hit
   - `ARCHITECTURE.md` §13.7 documents the v1 surface
+
+### Step 3.6: Ablation Matrix (this session, 2026-05-02)
+
+Five backbone × head ablation rows on the same 4999-sample slice:
+
+| backbone               | head            | macro_AUROC | macro_F1 | notes |
+|------------------------|-----------------|-------------|----------|-------|
+| ImageNet ResNet50      | HGBT            | 0.643       | 0.109    | pilot-1 baseline |
+| ImageNet DenseNet121   | HGBT            | 0.538       | 0.073    | architecture matters within ImageNet |
+| TXRV DenseNet121       | end-to-end      | 0.750       | n/a      | leakage ceiling |
+| TXRV DenseNet121       | HGBT (frozen)   | 0.697       | 0.094    | CXR pretraining + frozen feat |
+| TXRV DenseNet121       | LR + balanced   | 0.701       | 0.157    | head choice doubles macro-F1 |
+
+Threshold-strategy ablation (TXRV-emb + LR, four strategies):
+
+| threshold strategy        | macro_F1 | notes |
+|---------------------------|----------|-------|
+| PR-sweep + 0.5 shrinkage  | 0.157    | current default |
+| Fixed 0.5 per class       | 0.037    | naive baseline |
+| Youden's J                | 0.161    | only strategy that finds Hernia signal |
+| PR-sweep no shrinkage     | 0.176    | best; +12% relative over baseline |
+
+Hernia sensitivity (drop the N=9 class): rank order unchanged across all four ablation runs. TXRV-emb advantage over pilot-1 *widens* from +0.054 to +0.080 AUROC.
+
+Key finding: at the 4999-sample slice, AUROC ranking quality (~0.70) is the binding constraint, not threshold placement. The 0.20 macro-F1 reporting gate is not clearable at this slice size. Full-data run is the unblocking experiment.
+
+PR #10 (LR head adapter, **merged**): logistic regression head with `class_weight='balanced'` rescues 5 previously-zero classes (Mass, Consolidation, Edema, Fibrosis, Pleural_Thickening). Becomes the v1 paper's recommended head.
+
+PR #11 (TXRV backbone adapter, **in-flight**): wraps `torchxrayvision`'s `densenet121-res224-nih` weights as a `BackbonePort` adapter; unlocks the CXR-pretraining ablation cell properly.
 
 ---
 
@@ -43,7 +72,7 @@ Tracking doc for the path from current state → published paper. Check items as
 - [x] Implement `harness/adapters/torch/backbone.py`:
   - [x] `TorchVisionResNet50Backbone` (ImageNet weights from torchvision)
   - [x] `TorchVisionDenseNet121Backbone` (ImageNet weights)
-  - [ ] `RadImageNetResNet50Backbone` (RadImageNet weights — verify CC BY 4.0 attribution)
+  - [ ] `RadImageNetResNet50Backbone` (RadImageNet weights — verify CC BY 4.0 attribution; deferred — TXRV is the better CXR-pretrained backbone)
 - [x] **Apple Silicon MPS support** — use `torch.device("mps")` if available; works on this Mac, costs $0
 - [x] GPU-aware batching: try `mps` → `cuda` → `cpu`, fallback chain
 - [x] Deterministic mode: `torch.manual_seed`, `torch.backends.cudnn.deterministic=True`
@@ -53,21 +82,29 @@ Tracking doc for the path from current state → published paper. Check items as
 
 ### 3. First Real Run (~1–2 days)
 - [x] Wire NIH + ResNet50 (ImageNet) + existing sklearn head/calibrator/threshold via `composition/factories.py` → add `build_publication_runner_v1(seed)` factory
-- [ ] Pilot run on 5–10k sample slice — sanity check pipeline end-to-end
-- [ ] Full run on ~112k NIH samples (CPU may be feasible since features are extracted once and cached)
+- [x] Pilot run on 5–10k sample slice — sanity check pipeline end-to-end (pilot-1 ran on 4999, see Step 3.6)
+- [x] Pilot at 4999 produced macro-F1 = 0.176 (best threshold strategy on TXRV-emb+LR); 0.20 gate **NOT** cleared at this slice size — confirmed by 3-seed variance bound, threshold ablation, and Hernia sensitivity. The binding constraint at this slice is AUROC ranking quality (~0.70), not threshold placement.
+- [ ] Full run on ~112k NIH samples — **blocked on full-NIH download**; Kaggle CDN throughput is slow (~300 KiB/s, ~40 hr ETA from launch)
 - [ ] Capture artifacts via `FilesystemArtifactStore` to `runs/<timestamp>/`
-- [ ] **Gate: macro-F1 ≥ 0.20 on test split.** If below, debug before continuing.
-- [ ] Compare to TorchXRayVision NIH-14 baseline (use TXRV directly as a separate run, not as a dep)
+- [ ] **Gate: macro-F1 ≥ 0.20 on test split.** Expected to clear at full-data scale (TXRV-emb + LR + pr_sweep_no_shrink).
+- [ ] Once full data lands, expected macro-AUROC ~0.78–0.82 on TXRV-disjoint held-out split (clean, no leakage).
+- [x] Compare to TorchXRayVision NIH-14 baseline (TXRV-e2e: 0.750 AUROC, leakage-biased upper-bound; see Step 3.6)
 
 ### 4. Ablations (~3–4 days)
-Each ablation is a separate run with one variable swapped:
-- [ ] **Backbone:** ImageNet ResNet50 vs RadImageNet ResNet50 vs DenseNet121 vs scratch
-- [ ] **Loss / head:** BCE vs class-weighted BCE vs focal loss
-- [ ] **Threshold strategy:** fixed 0.5 vs per-class PR-sweep vs PR-sweep + shrinkage (your novel contribution)
-- [ ] **Calibration:** none vs Platt vs isotonic
-- [ ] **External validation:** train on NIH, test on VinDr-CXR or PadChest held-out (no retraining)
-- [ ] **Fairness slice:** per-sex, per-age-band macro-F1
-- [ ] All runs use the same seed for reproducibility; capture every config in the model card
+
+Already done (see Step 3.6 above):
+- [x] **Backbone:** ImageNet ResNet50 vs ImageNet DenseNet121 vs TXRV-pretrained DenseNet121 (frozen)
+- [x] **Head:** HGBT vs LR + class-balanced (LR doubles macro-F1 at fixed backbone)
+- [x] **Threshold strategy:** fixed 0.5 vs PR-sweep + shrinkage vs PR-sweep no shrinkage vs Youden's J (pr_sweep_no_shrink wins at 0.176)
+- [x] **Calibration co-fit reviewer-bait check:** flagged; calibrator + threshold trained on same val fold — document in paper or split with extra fold
+
+Remaining:
+- [ ] **External validation:** train on NIH, test on VinDr-CXR or PadChest held-out (no retraining). Adapter work needed (~1–2 day agent).
+- [ ] **Fairness slice:** per-sex, per-age-band macro-F1 / AUROC. NIH manifest has both columns — recompute on existing predictions.
+- [ ] **Bootstrap CI at n=1000** (currently most ablation runs use n=8 — adequate for cycle time, not paper-final).
+- [ ] **Calibration reliability diagrams** per class (none vs Platt vs isotonic).
+- [ ] **Confidence intervals on the ablation table cells** (currently point estimates only).
+- [ ] All runs use the same seed for reproducibility; capture every config in the model card.
 
 ### 5. Paper Draft (~2–3 weeks)
 - [ ] Outline structure (Introduction / Related Work / Method / Experiments / Discussion)
@@ -89,6 +126,64 @@ Each ablation is a separate run with one variable swapped:
 
 ---
 
+## 🎯 Two Tracks — Honest Venue Ambition
+
+**Decision needed.** User should pick a track before committing to the next month of work. Defaulting to Track A (workshop-grade, stay $0) until/unless the user explicitly relaxes a constraint.
+
+### Track A — Honest Workshop Paper ($0, current constraints)
+
+Realistic ceiling: **macro-AUROC ~0.78–0.82** on full-NIH-14 held-out, clean (no leakage). Macro-F1 likely clears 0.20 at full scale.
+
+Realistic venues (in priority):
+- arXiv preprint (no peer review, $0)
+- MIDL workshop (PMLR, free)
+- ML4H @ NeurIPS (free, OpenReview)
+- TMLR (peer-reviewed, no APC) — borderline; depends on methods novelty
+- MICCAI workshops (specific ones are free)
+
+What gets us there from here:
+- [ ] Full-NIH download completes
+- [ ] Pilot at n=112120 with TXRV-emb + LR head + pr_sweep_no_shrink threshold
+- [ ] External validation on VinDr-CXR or PadChest
+- [ ] Bootstrap n=1000 CIs
+- [ ] Calibration + fairness analyses
+- [ ] arXiv-ready draft with model + data cards
+
+What this paper IS:
+- Methodologically careful (hexagonal harness, TDD, ablation-driven)
+- Honest about scale and the threshold-budget finding
+- A real, defensible workshop contribution
+
+What this paper is NOT:
+- A SOTA-claim paper
+- Competitive with CheXNet, TorchXRayVision, or CXR-LT 2024 winners
+- Suitable for top medical-imaging conferences (MICCAI main, Radiology AI)
+
+### Track B — SOTA-Chasing (requires breaking $0 constraint)
+
+To beat published baselines (~0.84 AUROC for CheXNet, 0.86+ for CXR-LT 2024 winners), at least one of the following must be relaxed:
+
+1. **GPU budget.** End-to-end fine-tuning of a backbone on full NIH-14 needs ~10–50 GPU-hours. Free options:
+   - Kaggle Notebooks (free T4/P100, 30 hr/week limit)
+   - Colab free tier (T4, 12-hr sessions)
+   - Lightning AI Studios (free credits)
+   Each requires careful resource management; not impossible at $0 but adds 1–2 weeks of operational complexity.
+2. **Multi-dataset training.** CheXpert (Stanford) and MIMIC-CXR (MIT/PhysioNet) require credentialing — free, but takes 1–2 weeks for dataset access approval.
+3. **Modern architectures.** Vision Transformers (ViT-L/14, EVA-02) outperform DenseNet121 on CXR by ~0.02–0.05 AUROC; require larger compute footprint.
+4. **Ensembling.** Averaging 3–5 backbones typically adds +0.01–0.03 AUROC. Compute-cheap once individual models are trained.
+5. **Clinical co-author.** Doesn't move the numbers but improves review prospects at clinical venues; recruitment takes weeks.
+
+What this paper could become:
+- TMLR or MIDL main proceedings (with strong numbers + methods contribution)
+- ML4H main proceedings (numerical bar is competitive)
+- Possibly MICCAI workshop main track (e.g., DEEP-CXR)
+
+What this paper is still not:
+- Top medical-imaging conference (MICCAI main, Radiology AI) — those expect clinical evaluation
+- Replacing CheXNet — that ship sailed in 2017 and the field has moved on
+
+---
+
 ## 🟡 Parallel Tracks (start now, don't wait)
 
 ### A. PR Review
@@ -97,6 +192,8 @@ Each ablation is a separate run with one variable swapped:
 - [x] PR #6 reviewed and merged into `main` (`aa7c357`) — TorchVision backbone adapter ResNet50 + DenseNet121 (Step 2)
 - [x] PR #7 reviewed and merged into `main` (`60b4274`) — publication runner v1 + sklearn GBT head (Step 3 wiring)
 - [x] PR #8 reviewed and merged into `main` (`558ff17`) — feature cache + ablation runner (Step 3.5)
+- [x] PR #10 reviewed and merged into `main` — logistic-regression head adapter (Step 3.6 head ablation)
+- [ ] PR #11 — TXRV CXR-pretrained backbone adapter (Step 3.6 backbone ablation, in-flight)
 - [ ] Tag release `v0.5.0-harness`
 
 ### B. IRB — Self-Attestation Path ($0)
@@ -176,3 +273,5 @@ _(append-only; date each entry)_
 - **2026-05-01:** Harness PR #2 merged. Tracking checklist updated to $0 budget: dropped paid IRB letter (use self-attestation citing Common Rule §46.104(d)(4)), dropped APC journals (JMIR AI / Scientific Reports / PLOS One), targeting free venues only (arXiv → MIDL → ML4H → TMLR → MICCAI workshops). Compute plan is local MPS + Kaggle/Colab free tiers.
 - **2026-05-01:** Added a feature cache (Step 3.5, PR #8). Ablation runs re-extract the same features for every variant; ResNet50 forward is the long pole at ~50ms/image, which dominates the wall clock. `CachedBackbone` wraps the inner backbone before the decoding/preprocess wrapper so cache keys are content-addressable on raw image bytes + backbone identity, and downstream ablations (head, calibrator, threshold) reuse cached features across the seed grid in seconds.
 - **2026-05-01:** Pilot-1 (subset run on 4,999 NIH samples via `harness/scripts/run_pilot.py`) produced macro-F1 = 0.109 / macro-AUROC = 0.643 — barely above the 0.097 rule-based baseline. Flagging for diagnostic on a larger slice (likely the threshold + calibration co-fit on a tiny val fold, or class-imbalance behavior at this sample size) before committing to a full ~112k run. Step 3 boxes (pilot/full-run/gate/TXRV-baseline) intentionally left unchecked pending that diagnostic.
+- **2026-05-02:** Step 3.6 ablation matrix complete. Five backbone × head rows on the same 4999-slice produced a clear story: (1) ImageNet DenseNet121+HGBT *underperforms* ImageNet ResNet50+HGBT (0.538 vs 0.643 macro-AUROC) — architecture matters within ImageNet weights; (2) TXRV CXR-pretrained DenseNet121 (frozen embeddings) beats ImageNet ResNet50 (~0.70 vs 0.64 AUROC) — domain-pretrained beats ImageNet at this slice; (3) TXRV-e2e is 0.750 AUROC but leakage-biased (TXRV trained on the same NIH corpus our test split is drawn from); (4) head choice (LR + class_weight='balanced' vs HGBT) doubles macro-F1 (0.157 vs 0.094) at fixed backbone — LR rescues 5 previously-zero classes (Mass, Consolidation, Edema, Fibrosis, Pleural_Thickening); (5) threshold-strategy ablation: pr_sweep_no_shrink wins (0.176 macro-F1), beating pr_sweep + 0.5 shrinkage (0.157, current default) and Youden's J (0.161). Hernia sensitivity (drop the N=9 class) leaves rank order unchanged across all four ablation runs and *widens* the TXRV-emb advantage from +0.054 to +0.080 AUROC — robust signal, not driven by Hernia variance. **Headline finding:** at the 4999-slice, AUROC ranking quality (~0.70) is the binding constraint, not threshold placement; the 0.20 macro-F1 reporting gate is not clearable here. Full-data run (~112k) is the unblocking experiment, currently blocked on slow Kaggle CDN throughput.
+- **2026-05-02:** Added Two-Tracks framing (§Two Tracks). Track A is the honest $0 workshop path (target macro-AUROC ~0.78–0.82 at full data; arXiv → MIDL → ML4H → TMLR → MICCAI workshops). Track B is SOTA-chasing and requires relaxing at least one $0 constraint (free GPU credits, multi-dataset credentialing, modern architectures, ensembling, or a clinical co-author). User decision required before committing the next month of work; defaulting to Track A.

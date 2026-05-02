@@ -203,3 +203,57 @@ def test_publication_runner_v1_feature_cache_dir_populates_npy_files(
         f"expected the feature cache to be populated under {cache_dir!r}, "
         f"but found no .npy files"
     )
+
+
+@pytest.mark.smoke
+@pytest.mark.torch
+def test_publication_runner_v1_txrv_backbone_runs_end_to_end_on_fixture(
+    tmp_path: Path,
+) -> None:
+    """``backbone="txrv-densenet121"`` wires the TXRV CXR-pretrained backbone.
+
+    The factory exposes a ``backbone`` kwarg selecting the embedding source.
+    With ``"txrv-densenet121"`` the inner adapter is
+    :class:`~harness.adapters.torch.txrv_backbone.TXRVDenseNet121NIHBackbone`
+    (DenseNet121, 1024-dim features, NIH-pretrained); the rest of the
+    pipeline is unchanged. This smoke test asserts the run completes,
+    produces the four v1 artifacts, and records the TXRV identifier in
+    the model card's backbone field.
+    """
+    if not _FIXTURE_CSV.is_file() or not _FIXTURE_IMAGES.is_dir():
+        pytest.skip(
+            f"NIH fixture not found at {_FIXTURE_ROOT}; "
+            f"expected {_FIXTURE_CSV} and {_FIXTURE_IMAGES}"
+        )
+
+    bundle = build_publication_runner_v1(
+        seed=0,
+        nih_csv_path=_FIXTURE_CSV,
+        nih_images_dir=_FIXTURE_IMAGES,
+        artifact_root=tmp_path,
+        backbone="txrv-densenet121",
+    )
+
+    # Config records the TXRV identifier.
+    assert bundle.config.backbone_id == "txrv-densenet121-res224-nih"
+
+    result = run_experiment(
+        bundle.config,
+        dataset=bundle.dataset,
+        splitter=bundle.splitter,
+        backbone=bundle.backbone,
+        head=bundle.head,
+        calibrator=bundle.calibrator,
+        thresholds=bundle.thresholds,
+        metrics=bundle.metrics,
+        store=bundle.store,
+        randomness=bundle.randomness,
+    )
+
+    n_labels = len(result.config.label_names)
+    assert n_labels == 14
+    assert len(result.report.per_class) == n_labels
+    assert (tmp_path / "model_card.json").is_file()
+    assert (tmp_path / "thresholds.json").is_file()
+    assert (tmp_path / "metric_report.json").is_file()
+    assert (tmp_path / "predictions" / "test.csv").is_file()

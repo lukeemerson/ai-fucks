@@ -25,6 +25,7 @@ dev = [
 experiment = [
     "torch>=2.4,<3",
     "torchvision>=0.19,<1",
+    "torchxrayvision>=1.3,<2",
 ]
 
 [project.scripts]
@@ -69,5 +70,5 @@ module = ["scipy.*", "sklearn.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["torch.*", "torchvision.*", "hypothesis.*"]
+module = ["torch.*", "torchvision.*", "torchxrayvision.*", "hypothesis.*"]
 ignore_missing_imports = true

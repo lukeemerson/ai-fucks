@@ -143,6 +143,28 @@ class TestTorchVisionDenseNet121BackboneContract(BackbonePortContract):
 
 
 # ---------------------------------------------------------------------------
+# TXRV (torchxrayvision) NIH-pretrained DenseNet121 backbone.
+#
+# Network-restricted: this fixture loads the real ``densenet121-res224-nih``
+# weights (downloaded once and cached under ``~/.torchxrayvision/`` by the
+# library). Marked ``torch`` so it is excluded from the default suite.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.torch
+class TestTXRVDenseNet121NIHBackboneContract(BackbonePortContract):
+    image_h = 8
+    image_w = 8
+    image_c = 1
+
+    @pytest.fixture
+    def adapter(self) -> BackbonePort:
+        from harness.adapters.torch.txrv_backbone import TXRVDenseNet121NIHBackbone
+
+        return TXRVDenseNet121NIHBackbone(seed=0, device="cpu")
+
+
+# ---------------------------------------------------------------------------
 # CachedBackbone (filesystem cache wrapping any inner BackbonePort).
 #
 # Uses the IdentityFakeBackbone as inner so the suite stays in the default

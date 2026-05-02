@@ -271,9 +271,13 @@ class TrainingConfig:
     weight_decay: float
     """L2 regularization. Must be >= 0."""
 
-    optimizer: Literal["adamw", "sgd"]
-    """Optimizer choice. v1.1 ships ``"adamw"`` only; ``"sgd"`` validated for
-    follow-up. Other strings raise ``ConfigError``."""
+    optimizer: Literal["adamw"]
+    """Optimizer choice. v1.1 ships ``"adamw"`` only; the literal is
+    narrowed to ``Literal["adamw"]`` to remove the §3 / §5 drift the
+    original design surfaced. The ``__post_init__`` validator rejects
+    any other value with ``ConfigError``. v1.2 will lift the literal
+    when SGD is wired (see §3.1 deviation, this section, in the
+    implementation PR)."""
 
     lr_schedule: Literal["cosine", "constant"]
     """LR schedule. v1.1 ships both; defaults to ``"cosine"`` per CheXNet's recipe."""
@@ -316,6 +320,16 @@ class TrainingConfig:
 * `image_size[0] > 0`, `image_size[1] > 0`.
 * `early_stop_patience is None or early_stop_patience > 0`.
 * `num_dataloader_workers == 0` (raise `ConfigError` otherwise; v1.1 lock).
+
+#### §3.1 implementation deviation
+
+The original §3.1 declaration `optimizer: Literal["adamw", "sgd"]` was
+walked back inline in §5 ("Wait — that is YAGNI-violating. Revised: drop
+``"sgd"`` from the Literal until v1.2"). The implementation PR ships the
+narrower `Literal["adamw"]` form everywhere -- in the docstring above
+and in the `_ALLOWED_OPTIMIZERS` tuple in `harness/domain/types.py` --
+so both the doc and the code agree. v1.2 will lift the literal when
+SGD is wired.
 
 ### 3.2 `TrainingResult`
 
@@ -569,6 +583,17 @@ PR). Spec:
   current `TrainingConfig` (mismatch raises `AdapterError`), restore all
   state, continue from `epoch + 1`. Mismatched config means a logically
   different run; the operator must use a different `checkpoint_dir`.
+
+  **§5 implementation deviation: hash excludes `n_epochs` and
+  `early_stop_patience`.** Strict equality on the full config dict is
+  incompatible with the design's own resume use case in §6.2 ("train 3
+  epochs to checkpoint dir, load via a fresh trainer with `n_epochs=5`,
+  assert it ran exactly 2 more epochs"). The implementation's
+  `_config_hash` excludes those two fields via the
+  `_HASH_EXCLUDED_FIELDS` constant in `harness/adapters/torch/trainer.py`;
+  every other field participates. A logically different run (different
+  backbone, LR, augmentations, image size, etc.) still fails fast with
+  `AdapterError`.
 
 * **Returned `TrainedClassifierPort`.** A small adapter class
   (`_TorchTrainedClassifier`) that wraps the trained `nn.Module` in

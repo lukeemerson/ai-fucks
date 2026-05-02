@@ -1205,3 +1205,89 @@ keyword arguments per §6.1; adding optional ports + `if/else` branches
 violates that contract. Two named entry points (`run_experiment` for
 frozen-feature, `run_finetune_experiment` for fine-tune) with
 non-overlapping bundle shapes is the cleaner split.
+
+
+### 13.9 v1.1 fine-tuning surface (implemented)
+
+End-to-end fine-tuning landed in PR pate/fine-tune-impl-v1, building on
+the design + Protocol stubs from §13.8. The surface introduced is a
+strict superset of §13.8's "design only" listing.
+
+**Surface introduced (implementation PR).**
+
+* `harness/domain/types.py` — `TrainingConfig` and `TrainingResult`
+  frozen dataclasses with `__post_init__` validation per
+  FINE_TUNING_DESIGN.md §3.1 / §3.2; `ExperimentConfig.training:
+  TrainingConfig | None` field (default `None`) per §4.4.
+* `harness/adapters/torch/trainer.py` — `TorchFineTuneTrainer` adapter
+  implementing `TrainerPort`. Supports `densenet121` and `resnet50`
+  backbones with ImageNet-pretrained init; unknown `backbone_id`
+  (including any TXRV variant) raises `ConfigError`. Loss is
+  `nn.BCEWithLogitsLoss`; optimizer is `torch.optim.AdamW`. LR schedule
+  is cosine with linear warmup, or constant. Augmentations are
+  `torchvision.transforms.v2`-based (`hflip` ->
+  `RandomHorizontalFlip(p=0.5)`, `rotate10` -> `RandomRotation(degrees=10)`).
+  Device ladder mirrors the eval-only adapters (mps -> cuda -> cpu).
+  Checkpoints are `torch.save(dict, path)` per §10 answer #2.
+* `harness/composition/_finetune_pipeline.py` —
+  `_InMemoryTrainingDataset` (in-memory `TrainingDatasetPort`; 20000-row
+  cap enforced at construction per §10 answer #3), `FineTuneRunnerBundle`
+  dataclass, and an `ImageDecoder` callable type alias.
+* `harness/composition/runner.py` — new `run_finetune_experiment`
+  function. The existing `run_experiment` now raises `ConfigError` when
+  `config.training is not None` so the two paths are mutually exclusive
+  per §4.4.
+* `harness/composition/factories.py` — new `build_finetune_runner_v1`
+  factory returning a `FineTuneRunnerBundle`. Default training config
+  uses CheXNet augmentations `("hflip", "rotate10")` per §10 answer #5.
+* `tests/harness/contract/test_trainer_contract.py` — appended
+  `TestTorchFineTuneTrainerContract` concrete subclass (CPU device, 4
+  epochs, 32x32 input). Tagged `@pytest.mark.torch`.
+* `tests/harness/unit/test_training_config.py`,
+  `test_in_memory_training_dataset.py`, `test_torch_finetune_trainer.py`
+  — RED-first validator + adapter unit suites.
+* `tests/harness/integration/test_finetune_runner.py` — 16-row fixture
+  end-to-end wiring test. `@pytest.mark.torch @pytest.mark.slow`.
+* `tests/harness/integration/test_finetune_runner_smoke.py` — the
+  load-bearing smoke gate per §10 answer #1: 1 epoch on the 4999-row
+  NIH slice, asserts `report.macro_auroc.point > 0.65`.
+  `@pytest.mark.smoke @pytest.mark.slow @pytest.mark.torch`. Observed
+  smoke result on the implementing run: macro-AUROC = 0.7011.
+
+**Approved §10 sign-offs (deviations from the design doc that landed
+verbatim in the implementation PR).**
+
+* §10 answer #1: smoke gate is **1 epoch + macro-AUROC > 0.65**.
+* §10 answer #2: checkpoint format is `torch.save(dict)`; no safetensors.
+* §10 answer #3: `_InMemoryTrainingDataset` caps at **20000 rows**;
+  streaming variant deferred to v1.2.
+* §10 answer #4: MPS-vs-CPU determinism accepted (intra-device only).
+* §10 answer #5: default augmentations are `("hflip", "rotate10")`.
+* §10 answer #6: TXRV-NIH fine-tuning **is not shipped** in v1.1; the
+  trainer rejects any TXRV `backbone_id` with `ConfigError`.
+
+**Code-level deviations from FINE_TUNING_DESIGN.md.**
+
+* §3.1 / §5: the design doc declares
+  `optimizer: Literal["adamw", "sgd"]` in §3.1 then walks it back to
+  `Literal["adamw"]` in §5. The implementation ships **`Literal["adamw"]`
+  only**; `__post_init__` rejects any other value with `ConfigError`. The
+  `_ALLOWED_OPTIMIZERS` tuple in `harness/domain/types.py` is the single
+  source of truth. v1.2 will lift the literal when SGD is wired.
+* §5 (checkpoint resume): the design says "load the latest `epoch_*.pt`
+  whose `config_hash` matches the current `TrainingConfig` (mismatch
+  raises `AdapterError`)." Strict equality on the full config dict is
+  incompatible with the design's own resume use case (§6.2 "train 3
+  epochs to checkpoint dir, load via a fresh trainer with `n_epochs=5`").
+  The implementation's `_config_hash` therefore **excludes** `n_epochs`
+  and `early_stop_patience` from the hash via the
+  `_HASH_EXCLUDED_FIELDS` constant; all other fields participate. A
+  logically different run (different backbone, LR, augmentations, etc.)
+  still fails fast with `AdapterError`.
+* §5 (augmentation determinism): the design's open question between
+  v2 transforms vs per-epoch global `torch.manual_seed` is resolved in
+  favour of the v2 path. The trainer wraps each augmentation call in
+  `torch.random.fork_rng(devices=[])` + a per-batch
+  `torch.manual_seed(<seed_from_scoped_generator> + batch_idx)`, so the
+  augmentation pipeline is deterministic for a given `(seed, dataset)`
+  pair without any global RNG mutation outside the `fork_rng` scope.

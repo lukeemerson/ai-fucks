@@ -370,9 +370,182 @@ class ThresholdConfig:
             )
 
 
+# ---------------------------------------------------------------------------
+# v1.1 Fine-tuning configs (FINE_TUNING_DESIGN.md §3.1 / §3.2).
+# ---------------------------------------------------------------------------
+
+
+# Allowed values for the literal-typed string fields. Kept as module-level
+# tuples so the validator and any downstream consumer (e.g. the trainer
+# adapter) reuse a single source of truth.
+_ALLOWED_OPTIMIZERS: tuple[str, ...] = ("adamw",)
+_ALLOWED_LR_SCHEDULES: tuple[str, ...] = ("cosine", "constant")
+
+
+@dataclass(frozen=True, slots=True)
+class TrainingConfig:
+    """Hyperparameters for a single fine-tuning run.
+
+    Per ``harness/docs/FINE_TUNING_DESIGN.md`` §3.1 this is the configuration
+    object consumed by :class:`harness.ports.trainer.TrainerPort.fit`.
+
+    Validation per FINE_TUNING_DESIGN.md §3.1 (with the v1.1 optimizer
+    literal narrowed to ``{"adamw"}`` per the §3/§5 reconciliation
+    documented in the implementation PR):
+
+    * ``n_labels``, ``n_epochs``, ``batch_size`` must be > 0.
+    * ``learning_rate`` must be > 0; ``weight_decay`` must be >= 0.
+    * ``optimizer`` must be ``"adamw"`` (v1.1 only; ``"sgd"`` deferred to v1.2).
+    * ``lr_schedule`` must be ``"cosine"`` or ``"constant"``.
+    * ``warmup_epochs`` must be in ``[0, n_epochs]``.
+    * ``image_size`` must have positive ``(H, W)`` entries.
+    * ``early_stop_patience`` must be > 0 when set; ``None`` disables.
+    * ``num_dataloader_workers`` must be ``0`` (v1.1 lock per ARCHITECTURE.md
+      §9; the field exists so v1.2 can lift the constraint without a schema
+      change).
+
+    All violations raise :class:`~harness.domain.errors.ConfigError`.
+    """
+
+    backbone_id: str
+    n_labels: int
+    n_epochs: int
+    batch_size: int
+    learning_rate: float
+    weight_decay: float
+    optimizer: str  # Literal["adamw"] in v1.1; runtime-validated in __post_init__
+    lr_schedule: str  # Literal["cosine", "constant"]
+    warmup_epochs: int
+    augmentations: tuple[str, ...]
+    image_size: tuple[int, int]
+    checkpoint_dir: str | None  # absolute path string; None disables checkpointing
+    early_stop_patience: int | None
+    num_dataloader_workers: int
+
+    def __post_init__(self) -> None:
+        if self.n_labels <= 0:
+            raise ConfigError(
+                f"n_labels must be positive, got {self.n_labels}"
+            )
+        if self.n_epochs <= 0:
+            raise ConfigError(
+                f"n_epochs must be positive, got {self.n_epochs}"
+            )
+        if self.batch_size <= 0:
+            raise ConfigError(
+                f"batch_size must be positive, got {self.batch_size}"
+            )
+        if self.learning_rate <= 0.0:
+            raise ConfigError(
+                f"learning_rate must be positive, got {self.learning_rate}"
+            )
+        if self.weight_decay < 0.0:
+            raise ConfigError(
+                f"weight_decay must be non-negative, got {self.weight_decay}"
+            )
+        if self.optimizer not in _ALLOWED_OPTIMIZERS:
+            raise ConfigError(
+                f"optimizer must be one of {_ALLOWED_OPTIMIZERS!r}, "
+                f"got {self.optimizer!r} (v1.1 ships AdamW only; "
+                "see FINE_TUNING_DESIGN.md §3.1)"
+            )
+        if self.lr_schedule not in _ALLOWED_LR_SCHEDULES:
+            raise ConfigError(
+                f"lr_schedule must be one of {_ALLOWED_LR_SCHEDULES!r}, "
+                f"got {self.lr_schedule!r}"
+            )
+        if self.warmup_epochs < 0:
+            raise ConfigError(
+                f"warmup_epochs must be non-negative, got {self.warmup_epochs}"
+            )
+        if self.warmup_epochs > self.n_epochs:
+            raise ConfigError(
+                f"warmup_epochs {self.warmup_epochs} must be <= "
+                f"n_epochs {self.n_epochs}"
+            )
+        if self.image_size[0] <= 0 or self.image_size[1] <= 0:
+            raise ConfigError(
+                f"image_size must have positive entries, got {self.image_size}"
+            )
+        if self.early_stop_patience is not None and self.early_stop_patience <= 0:
+            raise ConfigError(
+                "early_stop_patience must be positive when set, "
+                f"got {self.early_stop_patience}"
+            )
+        if self.num_dataloader_workers != 0:
+            raise ConfigError(
+                "num_dataloader_workers must be 0 in v1.1 (multi-process "
+                "data loading is non-goal per ARCHITECTURE.md §9), "
+                f"got {self.num_dataloader_workers}"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class TrainingResult:
+    """Bookkeeping returned alongside the trained classifier.
+
+    Per ``harness/docs/FINE_TUNING_DESIGN.md`` §3.2 this is recorded in the
+    model card's ``notes`` field and is not consumed by the runner's
+    downstream calibrator/threshold/metrics chain.
+
+    Validation:
+
+    * ``n_epochs_run`` must be > 0.
+    * Each ``*_per_epoch`` tuple must have length ``n_epochs_run``.
+    * ``best_epoch`` must be in ``[0, n_epochs_run)``.
+    """
+
+    n_epochs_run: int
+    train_loss_per_epoch: tuple[float, ...]
+    val_loss_per_epoch: tuple[float, ...]
+    val_macro_auroc_per_epoch: tuple[float, ...]
+    best_epoch: int
+    final_checkpoint_uri: str | None
+
+    def __post_init__(self) -> None:
+        if self.n_epochs_run <= 0:
+            raise ConfigError(
+                f"n_epochs_run must be positive, got {self.n_epochs_run}"
+            )
+        if len(self.train_loss_per_epoch) != self.n_epochs_run:
+            raise ConfigError(
+                f"len(train_loss_per_epoch) {len(self.train_loss_per_epoch)} "
+                f"!= n_epochs_run {self.n_epochs_run}"
+            )
+        if len(self.val_loss_per_epoch) != self.n_epochs_run:
+            raise ConfigError(
+                f"len(val_loss_per_epoch) {len(self.val_loss_per_epoch)} "
+                f"!= n_epochs_run {self.n_epochs_run}"
+            )
+        if len(self.val_macro_auroc_per_epoch) != self.n_epochs_run:
+            raise ConfigError(
+                f"len(val_macro_auroc_per_epoch) "
+                f"{len(self.val_macro_auroc_per_epoch)} "
+                f"!= n_epochs_run {self.n_epochs_run}"
+            )
+        if self.best_epoch < 0 or self.best_epoch >= self.n_epochs_run:
+            raise ConfigError(
+                f"best_epoch must be in [0, n_epochs_run), "
+                f"got {self.best_epoch} (n_epochs_run={self.n_epochs_run})"
+            )
+
+
+# ---------------------------------------------------------------------------
+# ExperimentConfig (defined after TrainingConfig so the optional sub-config
+# field can reference TrainingConfig directly).
+# ---------------------------------------------------------------------------
+
+
 @dataclass(frozen=True, slots=True)
 class ExperimentConfig:
-    """Top-level configuration for a single experiment run."""
+    """Top-level configuration for a single experiment run.
+
+    The ``training`` field (FINE_TUNING_DESIGN.md §4.4) is ``None`` for
+    frozen-feature runs (the path through ``run_experiment``) and a
+    populated :class:`TrainingConfig` for fine-tune runs (the path through
+    ``run_finetune_experiment``). The two runners are mutually exclusive
+    on this field.
+    """
 
     experiment_name: str
     dataset_name: str
@@ -387,6 +560,7 @@ class ExperimentConfig:
     calibrator_id: str
     artifact_root: str
     notes: str
+    training: TrainingConfig | None = None
 
     def __post_init__(self) -> None:
         if not self.experiment_name:
@@ -425,61 +599,3 @@ class ExperimentResult:
     report: MetricReport
     model_card: ModelCard
     artifact_uris: Mapping[str, str]
-
-
-# ---------------------------------------------------------------------------
-# v1.1 Fine-tuning configs (design surface only; validators land in the
-# implementation PR per harness/docs/FINE_TUNING_DESIGN.md §11).
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True, slots=True)
-class TrainingConfig:
-    """Hyperparameters for a single fine-tuning run.
-
-    Per ``harness/docs/FINE_TUNING_DESIGN.md`` §3.1 this is the configuration
-    object consumed by :class:`harness.ports.trainer.TrainerPort.fit`.
-
-    **Design-PR caveat.** This dataclass ships in the design PR with no
-    ``__post_init__`` validation. The implementation PR adds the validators
-    under TDD red-green discipline (see FINE_TUNING_DESIGN.md §3.1 for the
-    full validation rule list -- positive ``n_epochs`` / ``batch_size``,
-    optimizer ``in {"adamw"}`` for v1.1, ``num_dataloader_workers == 0``,
-    etc.). Until then, callers are responsible for passing valid values;
-    invariants are documented but not enforced.
-    """
-
-    backbone_id: str
-    n_labels: int
-    n_epochs: int
-    batch_size: int
-    learning_rate: float
-    weight_decay: float
-    optimizer: str  # Literal["adamw"] in v1.1; widened to allow string for now
-    lr_schedule: str  # Literal["cosine", "constant"] in v1.1
-    warmup_epochs: int
-    augmentations: tuple[str, ...]
-    image_size: tuple[int, int]
-    checkpoint_dir: str | None  # absolute path string; None disables checkpointing
-    early_stop_patience: int | None
-    num_dataloader_workers: int
-
-
-@dataclass(frozen=True, slots=True)
-class TrainingResult:
-    """Bookkeeping returned alongside the trained classifier.
-
-    Per ``harness/docs/FINE_TUNING_DESIGN.md`` §3.2 this is recorded in the
-    model card's ``notes`` field and is not consumed by the runner's
-    downstream calibrator/threshold/metrics chain.
-
-    **Design-PR caveat.** Same scoping note as :class:`TrainingConfig`:
-    validators land with the implementation PR.
-    """
-
-    n_epochs_run: int
-    train_loss_per_epoch: tuple[float, ...]
-    val_loss_per_epoch: tuple[float, ...]
-    val_macro_auroc_per_epoch: tuple[float, ...]
-    best_epoch: int
-    final_checkpoint_uri: str | None

@@ -16,38 +16,43 @@ Tracking doc for the path from current state → published paper. Check items as
   - 9 ports, 9 fakes, 4 sklearn real adapters, filesystem store, composition root
   - 267 tests passing, ruff + mypy strict clean
   - `ARCHITECTURE.md` + §13 v1 surface documented
+- [x] Step 3.5 — Feature Cache + Ablation Runner (PR #8 **merged** as `693460f`)
+  - `CachedBackbone` adapter (`harness/adapters/fs/cached_backbone.py`) — content-addressable feature cache wrapping any `BackbonePort`
+  - `harness/scripts/run_ablation.py` CLI — runs the publication pipeline across a comma-separated seed grid, sharing the cache; writes `comparison.csv`
+  - Ablation runner integration test (`tests/harness/integration/test_ablation_runner_smoke.py`) including byte-identical determinism contract across cache miss vs cache hit
+  - `ARCHITECTURE.md` §13.7 documents the v1 surface
 
 ---
 
 ## 🔴 Critical Path (do these in order)
 
 ### 1. NIH Dataset Adapter (~2–3 days)
-- [ ] Read `Data_Entry_2017_v2020.csv` schema (already on disk)
-- [ ] Spec the multi-label one-hot encoding (14 NIH labels)
-- [ ] Patient-level metadata extraction (Patient ID column → `patient_id` field)
-- [ ] TDD: write contract test against `DatasetPort` with a 100-row fixture
-- [ ] Implement `harness/adapters/fs/nih_dataset.py` against `DatasetPort`
-- [ ] Image loader: JPG/PNG → numpy float32, resized to backbone input size, normalized
+- [x] Read `Data_Entry_2017_v2020.csv` schema (already on disk)
+- [x] Spec the multi-label one-hot encoding (14 NIH labels)
+- [x] Patient-level metadata extraction (Patient ID column → `patient_id` field)
+- [x] TDD: write contract test against `DatasetPort` with a 100-row fixture
+- [x] Implement `harness/adapters/fs/nih_dataset.py` against `DatasetPort`
+- [x] Image loader: JPG/PNG → numpy float32, resized to backbone input size, normalized
 - [ ] Caching layer (memmap or LMDB) so re-runs don't re-decode JPEGs
-- [ ] Smoke test: load 1k samples, verify shapes + label distribution
+- [x] Smoke test: load 1k samples, verify shapes + label distribution
 - [ ] Full-dataset gate behind `--full` flag so unit tests stay fast
 
 ### 2. Torch Backbone Adapter (~2–3 days)
-- [ ] Add `torch` + `torchvision` to actual install (`pip install -e ".[experiment]"`)
-- [ ] TDD: contract test against `BackbonePort` using fake images
-- [ ] Implement `harness/adapters/torch/backbone.py`:
-  - [ ] `TorchVisionResNet50Backbone` (ImageNet weights from torchvision)
-  - [ ] `TorchVisionDenseNet121Backbone` (ImageNet weights)
+- [x] Add `torch` + `torchvision` to actual install (`pip install -e ".[experiment]"`)
+- [x] TDD: contract test against `BackbonePort` using fake images
+- [x] Implement `harness/adapters/torch/backbone.py`:
+  - [x] `TorchVisionResNet50Backbone` (ImageNet weights from torchvision)
+  - [x] `TorchVisionDenseNet121Backbone` (ImageNet weights)
   - [ ] `RadImageNetResNet50Backbone` (RadImageNet weights — verify CC BY 4.0 attribution)
-- [ ] **Apple Silicon MPS support** — use `torch.device("mps")` if available; works on this Mac, costs $0
-- [ ] GPU-aware batching: try `mps` → `cuda` → `cpu`, fallback chain
-- [ ] Deterministic mode: `torch.manual_seed`, `torch.backends.cudnn.deterministic=True`
-- [ ] Eval-only (`model.eval()` + `torch.no_grad()`); no training in v1
-- [ ] Mark torch tests with `@pytest.mark.torch`; default test run skips them
-- [ ] Add `torch` to mypy `ignore_missing_imports` (already done in pyproject)
+- [x] **Apple Silicon MPS support** — use `torch.device("mps")` if available; works on this Mac, costs $0
+- [x] GPU-aware batching: try `mps` → `cuda` → `cpu`, fallback chain
+- [x] Deterministic mode: `torch.manual_seed`, `torch.backends.cudnn.deterministic=True`
+- [x] Eval-only (`model.eval()` + `torch.no_grad()`); no training in v1
+- [x] Mark torch tests with `@pytest.mark.torch`; default test run skips them
+- [x] Add `torch` to mypy `ignore_missing_imports` (already done in pyproject)
 
 ### 3. First Real Run (~1–2 days)
-- [ ] Wire NIH + ResNet50 (ImageNet) + existing sklearn head/calibrator/threshold via `composition/factories.py` → add `build_publication_runner_v1(seed)` factory
+- [x] Wire NIH + ResNet50 (ImageNet) + existing sklearn head/calibrator/threshold via `composition/factories.py` → add `build_publication_runner_v1(seed)` factory
 - [ ] Pilot run on 5–10k sample slice — sanity check pipeline end-to-end
 - [ ] Full run on ~112k NIH samples (CPU may be feasible since features are extracted once and cached)
 - [ ] Capture artifacts via `FilesystemArtifactStore` to `runs/<timestamp>/`
@@ -88,6 +93,10 @@ Each ablation is a separate run with one variable swapped:
 
 ### A. PR Review
 - [x] PR #2 reviewed and merged into `main` (`965086d`)
+- [x] PR #4 reviewed and merged into `main` (`fc357e3`) — NIH ChestX-ray14 dataset adapter (Step 1)
+- [x] PR #6 reviewed and merged into `main` (`aa7c357`) — TorchVision backbone adapter ResNet50 + DenseNet121 (Step 2)
+- [x] PR #7 reviewed and merged into `main` (`60b4274`) — publication runner v1 + sklearn GBT head (Step 3 wiring)
+- [x] PR #8 reviewed and merged into `main` (`558ff17`) — feature cache + ablation runner (Step 3.5)
 - [ ] Tag release `v0.5.0-harness`
 
 ### B. IRB — Self-Attestation Path ($0)
@@ -165,3 +174,5 @@ _(append-only; date each entry)_
 - **2026-05-01:** Decided against torch in `harness/` core; behind `[experiment]` extra so test suite stays fast.
 - **2026-05-01:** Per-class learned thresholds via OOF PR-sweep + shrinkage to global pooled anchor + clamps is the methodological contribution.
 - **2026-05-01:** Harness PR #2 merged. Tracking checklist updated to $0 budget: dropped paid IRB letter (use self-attestation citing Common Rule §46.104(d)(4)), dropped APC journals (JMIR AI / Scientific Reports / PLOS One), targeting free venues only (arXiv → MIDL → ML4H → TMLR → MICCAI workshops). Compute plan is local MPS + Kaggle/Colab free tiers.
+- **2026-05-01:** Added a feature cache (Step 3.5, PR #8). Ablation runs re-extract the same features for every variant; ResNet50 forward is the long pole at ~50ms/image, which dominates the wall clock. `CachedBackbone` wraps the inner backbone before the decoding/preprocess wrapper so cache keys are content-addressable on raw image bytes + backbone identity, and downstream ablations (head, calibrator, threshold) reuse cached features across the seed grid in seconds.
+- **2026-05-01:** Pilot-1 (subset run on 4,999 NIH samples via `harness/scripts/run_pilot.py`) produced macro-F1 = 0.109 / macro-AUROC = 0.643 — barely above the 0.097 rule-based baseline. Flagging for diagnostic on a larger slice (likely the threshold + calibration co-fit on a tiny val fold, or class-imbalance behavior at this sample size) before committing to a full ~112k run. Step 3 boxes (pilot/full-run/gate/TXRV-baseline) intentionally left unchecked pending that diagnostic.

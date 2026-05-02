@@ -1144,3 +1144,64 @@ only the seeds that completed successfully.
 * Distributed feature extraction (sharded across machines or processes).
 * Patient-block-aligned `--n` truncation (currently inherits the same
   mid-patient truncation semantics as `run_pilot.py`).
+
+### 13.8 v1.1 fine-tuning surface (design only; not yet implemented)
+
+End-to-end fine-tuning is the load-bearing v1.1 capability: the architecture
+that lets the harness train the backbone + head together on the full NIH-14
+corpus rather than running frozen-feature extraction. The full design --
+port surface, adapter signature, composition wiring, test strategy,
+determinism story, and out-of-scope items -- lives in
+`harness/docs/FINE_TUNING_DESIGN.md`.
+
+**Surface introduced (design PR; stub only).**
+
+* `harness/ports/trainer.py` -- three new Protocols:
+
+  * `TrainingDatasetPort` -- finite-length iterable of decoded
+    `(image, labels)` rows, built by the composition root from a
+    `DatasetPort` + split index list.
+  * `TrainedClassifierPort` -- the eval-ready model returned by the
+    trainer; exposes only `predict_proba(images) -> probabilities` so the
+    runner can route its output into the existing
+    `CalibratorPort` -> `ThresholdPort` -> `MetricsPort` chain.
+  * `TrainerPort` -- end-to-end trainer; `fit(*, training_dataset,
+    validation_dataset, config, seed) -> tuple[TrainedClassifierPort,
+    TrainingResult]`.
+
+* `tests/harness/contract/test_trainer_contract.py` -- abstract
+  `TrainerPortContract` base class plus a synthetic two-class `_TinyDataset`.
+  No concrete subclasses yet; the implementation PR adds
+  `TestTorchFineTuneTrainerContract` under TDD red-green discipline.
+
+**Surface deferred to the implementation PR.**
+
+* `TrainingConfig` and `TrainingResult` domain types
+  (`harness/domain/types.py`).
+* `TorchFineTuneTrainer` adapter (`harness/adapters/torch/trainer.py`).
+* `run_finetune_experiment` runner entry point and `FineTuneRunnerBundle`
+  bundle dataclass.
+* `build_finetune_runner_v1` factory.
+* Unit tests, integration test on the 16-row NIH fixture, and a
+  `@pytest.mark.smoke` test on the 4999-row slice asserting
+  macro-AUROC > 0.65 (the frozen-feature floor).
+
+**Why a new port and not an extension of `BackbonePort`.** Per
+FINE_TUNING_DESIGN.md §1, fine-tuning is fundamentally a different
+operation from frozen feature extraction (it owns the optimizer, loss,
+LR schedule, DataLoader, augmentation, checkpointing). Extending the
+eval-only `BackbonePort` would force every existing adapter --
+`TorchVisionResNet50Backbone`, `TorchVisionDenseNet121Backbone`,
+`TXRVDenseNet121NIHBackbone`, `IdentityFakeBackbone`, `CachedBackbone` --
+to stub a `fit()` method none of them can meaningfully implement.
+Subclassing (`TrainableBackbonePort(BackbonePort)`) still smuggles
+head + loss + optimizer concerns into "the backbone." A separate
+`TrainerPort` keeps the existing frozen-feature pipeline byte-identical
+and adds a clean parallel path.
+
+**Why a new runner function and not a flag on `run_experiment`.** Per
+FINE_TUNING_DESIGN.md §4, `run_experiment` defines all ports as required
+keyword arguments per §6.1; adding optional ports + `if/else` branches
+violates that contract. Two named entry points (`run_experiment` for
+frozen-feature, `run_finetune_experiment` for fine-tune) with
+non-overlapping bundle shapes is the cleaner split.

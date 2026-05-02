@@ -425,3 +425,61 @@ class ExperimentResult:
     report: MetricReport
     model_card: ModelCard
     artifact_uris: Mapping[str, str]
+
+
+# ---------------------------------------------------------------------------
+# v1.1 Fine-tuning configs (design surface only; validators land in the
+# implementation PR per harness/docs/FINE_TUNING_DESIGN.md §11).
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class TrainingConfig:
+    """Hyperparameters for a single fine-tuning run.
+
+    Per ``harness/docs/FINE_TUNING_DESIGN.md`` §3.1 this is the configuration
+    object consumed by :class:`harness.ports.trainer.TrainerPort.fit`.
+
+    **Design-PR caveat.** This dataclass ships in the design PR with no
+    ``__post_init__`` validation. The implementation PR adds the validators
+    under TDD red-green discipline (see FINE_TUNING_DESIGN.md §3.1 for the
+    full validation rule list -- positive ``n_epochs`` / ``batch_size``,
+    optimizer ``in {"adamw"}`` for v1.1, ``num_dataloader_workers == 0``,
+    etc.). Until then, callers are responsible for passing valid values;
+    invariants are documented but not enforced.
+    """
+
+    backbone_id: str
+    n_labels: int
+    n_epochs: int
+    batch_size: int
+    learning_rate: float
+    weight_decay: float
+    optimizer: str  # Literal["adamw"] in v1.1; widened to allow string for now
+    lr_schedule: str  # Literal["cosine", "constant"] in v1.1
+    warmup_epochs: int
+    augmentations: tuple[str, ...]
+    image_size: tuple[int, int]
+    checkpoint_dir: str | None  # absolute path string; None disables checkpointing
+    early_stop_patience: int | None
+    num_dataloader_workers: int
+
+
+@dataclass(frozen=True, slots=True)
+class TrainingResult:
+    """Bookkeeping returned alongside the trained classifier.
+
+    Per ``harness/docs/FINE_TUNING_DESIGN.md`` §3.2 this is recorded in the
+    model card's ``notes`` field and is not consumed by the runner's
+    downstream calibrator/threshold/metrics chain.
+
+    **Design-PR caveat.** Same scoping note as :class:`TrainingConfig`:
+    validators land with the implementation PR.
+    """
+
+    n_epochs_run: int
+    train_loss_per_epoch: tuple[float, ...]
+    val_loss_per_epoch: tuple[float, ...]
+    val_macro_auroc_per_epoch: tuple[float, ...]
+    best_epoch: int
+    final_checkpoint_uri: str | None

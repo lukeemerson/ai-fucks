@@ -1302,3 +1302,12 @@ verbatim in the implementation PR).**
   constructing ``_TorchTrainedClassifier``, and rewrites
   `final_checkpoint_uri` to point at ``epoch_{best_epoch:03d}.pt``.
   Non-best per-epoch ``epoch_*.pt`` files remain on disk for resume.
+* §13.9 model-card lineage (Wave 4 review C2 fix): the runner's first
+  cut wired the trainer's port-level ``identifier``
+  (``"torch.finetune.v1"``) into both the ``backbone_id`` and
+  ``head_id`` slots of the persisted ``ModelCard``, collapsing the
+  densenet121-vs-resnet50 distinction. The fix wave routes
+  ``config.backbone_id`` and ``config.head_id`` (set by the factory to
+  ``"torch.finetune.{backbone}.v1"`` and ``"torch.finetune.linear.v1"``
+  respectively) directly into ``_build_model_card``; the calibrator
+  slot is unaffected (still uses ``_describe_port(calibrator, ...)``).

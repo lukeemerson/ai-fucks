@@ -88,3 +88,55 @@ def test_finetune_runner_runs_end_to_end_on_fixture(tmp_path: Path) -> None:
 
     # Model card notes record the trainer identifier.
     assert "torch.finetune.v1" in result.model_card.notes
+
+
+@pytest.mark.torch
+@pytest.mark.slow
+def test_finetune_model_card_records_backbone_lineage(tmp_path: Path) -> None:
+    """C2: ModelCard.backbone must distinguish densenet121 from resnet50.
+
+    The Wave 4 review found the runner threaded ``trainer.identifier``
+    (``"torch.finetune.v1"``) into both ``backbone_id`` and ``head_id``
+    slots, losing per-backbone lineage. With the C2 fix the runner uses
+    ``config.backbone_id`` (which the factory sets to
+    ``f"torch.finetune.{backbone}.v1"``) for the ``backbone`` slot, so
+    the persisted model card distinguishes the two backbones.
+    """
+    if not _FIXTURE_CSV.is_file() or not _FIXTURE_IMAGES.is_dir():
+        pytest.skip(
+            f"NIH fixture not found at {_FIXTURE_ROOT}; "
+            f"expected {_FIXTURE_CSV} and {_FIXTURE_IMAGES}"
+        )
+
+    backbones: dict[str, str] = {}
+    for backbone in ("densenet121", "resnet50"):
+        run_root = tmp_path / backbone
+        run_root.mkdir()
+        bundle = build_finetune_runner_v1(
+            seed=0,
+            nih_csv_path=_FIXTURE_CSV,
+            nih_images_dir=_FIXTURE_IMAGES,
+            artifact_root=run_root,
+            n_epochs=1,
+            batch_size=4,
+            backbone=backbone,
+        )
+        result = run_finetune_experiment(
+            bundle.config,
+            dataset=bundle.dataset,
+            splitter=bundle.splitter,
+            trainer=bundle.trainer,
+            calibrator=bundle.calibrator,
+            thresholds=bundle.thresholds,
+            metrics=bundle.metrics,
+            store=bundle.store,
+            randomness=bundle.randomness,
+            decoder=bundle.decoder,
+        )
+        backbones[backbone] = result.model_card.backbone
+
+    assert backbones["densenet121"] != backbones["resnet50"], (
+        f"ModelCard.backbone must distinguish backbones, got {backbones!r}"
+    )
+    assert "densenet121" in backbones["densenet121"]
+    assert "resnet50" in backbones["resnet50"]

@@ -305,13 +305,22 @@ def run_finetune_experiment(
     notes = _build_finetune_notes(
         notes=config.notes, trainer=trainer, training_result=training_result
     )
+    # C2: route the backbone-vs-head lineage through ``config.backbone_id``
+    # rather than the trainer's port-level ``identifier`` (which is per-recipe,
+    # e.g. ``"torch.finetune.v1"``, and would collapse the densenet121-vs-
+    # resnet50 distinction in the persisted ModelCard). The factory wires
+    # ``config.backbone_id`` to ``f"torch.finetune.{backbone}.v1"`` so this
+    # preserves per-backbone lineage. The head is a fresh ``nn.Linear`` head
+    # created inside the trainer per FINE_TUNING_DESIGN.md §5; we record it
+    # via ``config.head_id`` (set by the factory to
+    # ``"torch.finetune.linear.v1"``).
     model_card = _build_model_card(
         config=config,
         split=split,
         threshold_set=threshold_set,
         report=report,
-        backbone_id=_describe_port(trainer, "backbone_id", config.backbone_id),
-        head_id=_describe_port(trainer, "head_id", config.head_id),
+        backbone_id=config.backbone_id,
+        head_id=config.head_id,
         calibrator_id=_describe_port(
             calibrator, "calibrator_id", config.calibrator_id
         ),

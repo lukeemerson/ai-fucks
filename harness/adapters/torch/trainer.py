@@ -51,7 +51,6 @@ import hashlib
 import json
 import math
 from dataclasses import asdict
-from pathlib import Path
 from typing import Final, Literal, get_args
 
 import numpy as np
@@ -161,6 +160,59 @@ def _config_hash(config: TrainingConfig) -> str:
         payload_dict, sort_keys=True, separators=(",", ":"), default=str
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+# A large prime; used as the per-epoch stride in ``_augmentation_seed`` so the
+# combined ``base + epoch * STRIDE + batch_idx`` value avoids collisions for
+# any plausible ``(n_epochs, n_batches)`` pair (n_epochs <= 1e4, batches per
+# epoch <= STRIDE - 1 -> ~1e5 batches/epoch).
+_AUG_EPOCH_STRIDE: Final[int] = 100003
+
+
+def _augmentation_seed(base_seed: int, *, epoch: int, batch_idx: int) -> int:
+    """Derive a per-(epoch, batch) augmentation seed.
+
+    Fixes M1 from the Wave 4 review: the original
+    ``aug_gen.initial_seed() + n_batches`` formulation reset ``n_batches``
+    each epoch, so batch position 0 in every epoch saw identical aug
+    parameters. Threading ``epoch`` into the derivation breaks that
+    collision while preserving determinism for a fixed
+    ``(seed, dataset, n_epochs)`` triple.
+
+    The resulting seed is masked to fit a non-negative 63-bit int so it
+    can be passed unchanged to ``torch.manual_seed`` without overflow on
+    LP64 platforms.
+    """
+    raw = int(base_seed) + epoch * _AUG_EPOCH_STRIDE + batch_idx
+    return int(raw) & ((1 << 63) - 1)
+
+
+def _compute_lr_for_epoch(
+    *,
+    epoch: int,
+    base_lr: float,
+    n_epochs: int,
+    warmup_epochs: int,
+    schedule: str,
+) -> float:
+    """Stateless cosine-with-warmup / constant LR computation.
+
+    Replaces ``TorchFineTuneTrainer._compute_lr`` with a module-level
+    helper so unit tests can drive it without spinning up a full ``fit``
+    loop and the trainer no longer needs to expose mutable test
+    affordance instance state (M2 fix). The semantics are unchanged
+    from §5: warmup linearly ramps ``1/W .. W/W * base_lr`` across
+    ``warmup_epochs`` epochs, then a half-cosine decays from ``base_lr``
+    to 0 over the remaining ``n_epochs - warmup_epochs`` epochs.
+    """
+    if schedule == "constant":
+        return base_lr
+    if warmup_epochs > 0 and epoch < warmup_epochs:
+        return base_lr * float(epoch + 1) / float(warmup_epochs)
+    remaining_epochs = max(n_epochs - warmup_epochs, 1)
+    progress = (epoch - warmup_epochs) / float(remaining_epochs)
+    progress = max(0.0, min(progress, 1.0))
+    return base_lr * 0.5 * (1.0 + math.cos(math.pi * progress))
 
 
 def _build_model(*, backbone_id: str, n_labels: int) -> nn.Module:
@@ -369,29 +421,17 @@ class TorchFineTuneTrainer:
     and YAGNI-style scope.
     """
 
-    __slots__ = ("_device", "_lr_per_epoch_for_test")
+    __slots__ = ("_device",)
 
     def __init__(self, *, device: DeviceName | None = None) -> None:
         self._device: DeviceName = _select_device(device)
         if self._device == "cuda":
             torch.backends.cudnn.deterministic = True
             torch.backends.cudnn.benchmark = False
-        # Per-epoch LR snapshot exposed via ``lr_per_epoch_for_test`` for
-        # the cosine-warmup unit test; not part of the port surface.
-        self._lr_per_epoch_for_test: tuple[float, ...] = ()
 
     @property
     def identifier(self) -> str:
         return _TRAINER_IDENTIFIER
-
-    def lr_per_epoch_for_test(self) -> tuple[float, ...]:
-        """Test hook: per-epoch LR captured during the most recent ``fit``.
-
-        Not part of :class:`TrainerPort`. Exposed for the cosine-warmup
-        unit test (FINE_TUNING_DESIGN.md §6.2) so it does not have to
-        instrument private attributes.
-        """
-        return self._lr_per_epoch_for_test
 
     def fit(
         self,
@@ -457,8 +497,6 @@ class TorchFineTuneTrainer:
         # Augmentation generator (separate so it is not polluted by the
         # DataLoader's shuffle draws).
         aug_seed = _child_seed(seed, "augment")
-        aug_gen = torch.Generator()
-        aug_gen.manual_seed(aug_seed)
 
         cfg_hash = _config_hash(config)
         # Resume from the latest checkpoint if present.
@@ -480,10 +518,9 @@ class TorchFineTuneTrainer:
 
         # Best-epoch state tracking (C1 fix). On a fresh run ``best_state``
         # starts as ``None``; on resume we re-derive it from the best epoch
-        # in the persisted history (if any) by loading
-        # ``epoch_{best_epoch_so_far:03d}.pt`` from disk. The in-memory
-        # state_dict is the source of truth for what the returned classifier
-        # wraps; the on-disk ``epoch_{best:03d}.pt`` file stays in sync via
+        # in the persisted history (if any). The in-memory state_dict is
+        # the source of truth for what the returned classifier wraps; the
+        # on-disk ``epoch_{best:03d}.pt`` file stays in sync via
         # ``_maybe_save_checkpoint`` calls per epoch.
         best_state: dict[str, torch.Tensor] | None = None
         best_epoch_so_far: int = (
@@ -491,7 +528,7 @@ class TorchFineTuneTrainer:
         )
         if best_epoch_so_far >= 0 and config.checkpoint_dir is not None:
             ckpt_path = (
-                Path(config.checkpoint_dir)
+                config.checkpoint_dir
                 / f"epoch_{best_epoch_so_far:03d}.pt"
             )
             if ckpt_path.is_file():
@@ -511,7 +548,13 @@ class TorchFineTuneTrainer:
                 }
 
         for epoch in range(start_epoch, config.n_epochs):
-            lr = self._compute_lr(config=config, epoch=epoch)
+            lr = _compute_lr_for_epoch(
+                epoch=epoch,
+                base_lr=config.learning_rate,
+                n_epochs=config.n_epochs,
+                warmup_epochs=config.warmup_epochs,
+                schedule=config.lr_schedule,
+            )
             for group in optimizer.param_groups:
                 group["lr"] = lr
             lr_per_epoch.append(lr)
@@ -521,7 +564,8 @@ class TorchFineTuneTrainer:
                 optimizer=optimizer,
                 loss_fn=loss_fn,
                 augmentation=augmentation_module,
-                augmentation_generator=aug_gen,
+                augmentation_base_seed=aug_seed,
+                epoch=epoch,
                 config=config,
             )
             val_loss, val_auroc = self._evaluate(
@@ -573,15 +617,18 @@ class TorchFineTuneTrainer:
         # it in the returned classifier. ``best_state`` is populated either
         # by the in-loop snapshot above (when at least one epoch ran) or
         # by the resume-side load (when start_epoch == n_epochs and no
-        # new epoch outperformed the resumed best).
+        # new epoch outperformed the resumed best). On a pure-resume call
+        # the loop body executes zero times, ``best_state`` stays as the
+        # resume-derived state, and the model still reflects the best epoch.
         if best_state is not None:
             model.load_state_dict(best_state)
         final_checkpoint_uri = (
-            self._final_checkpoint_uri(config=config, best_epoch=best_epoch)
+            self._final_checkpoint_uri(
+                config=config, best_epoch=best_epoch
+            )
             if config.checkpoint_dir is not None
             else None
         )
-        self._lr_per_epoch_for_test = tuple(lr_per_epoch)
         result = TrainingResult(
             n_epochs_run=n_epochs_run,
             train_loss_per_epoch=tuple(train_losses),
@@ -608,7 +655,8 @@ class TorchFineTuneTrainer:
         optimizer: AdamW,
         loss_fn: nn.BCEWithLogitsLoss,
         augmentation: nn.Module | None,
-        augmentation_generator: torch.Generator,
+        augmentation_base_seed: int,
+        epoch: int,
         config: TrainingConfig,
     ) -> float:
         model.train()
@@ -630,14 +678,21 @@ class TorchFineTuneTrainer:
             if images.shape[1] == 1:
                 images = images.repeat(1, 3, 1, 1)
             if augmentation is not None:
-                # torchvision.transforms.v2 transforms accept a generator
-                # via the per-call ``torch.Generator()`` thread-local. We
-                # force-seed via fork_rng so the augmentation pipeline
-                # consumes from our scoped generator only.
+                # torchvision.transforms.v2 transforms read from the global
+                # torch RNG; we ``fork_rng`` and reseed per-(epoch, batch)
+                # so the augmentation pipeline is deterministic for a
+                # fixed (seed, dataset) pair without any global mutation
+                # leaking outside this scope. Threading ``epoch`` into the
+                # derivation fixes M1 from the Wave 4 review (collision
+                # between batch 0 of every epoch under the previous
+                # ``aug_seed + n_batches`` formulation).
                 with torch.random.fork_rng(devices=[]):
                     torch.manual_seed(
-                        int(augmentation_generator.initial_seed())
-                        + n_batches
+                        _augmentation_seed(
+                            augmentation_base_seed,
+                            epoch=epoch,
+                            batch_idx=n_batches,
+                        )
                     )
                     images = augmentation(images)
             if images.shape[2] != h or images.shape[3] != w:
@@ -705,21 +760,6 @@ class TorchFineTuneTrainer:
         macro_auroc = _macro_auroc(probs_arr, labels_arr)
         return avg_loss, macro_auroc
 
-    # -- LR schedule ----------------------------------------------------
-
-    def _compute_lr(self, *, config: TrainingConfig, epoch: int) -> float:
-        base_lr = config.learning_rate
-        if config.lr_schedule == "constant":
-            return base_lr
-        # Cosine with linear warmup. Warmup goes 1/W .. W/W across W
-        # warmup epochs; then a cosine decay over the remaining epochs.
-        if config.warmup_epochs > 0 and epoch < config.warmup_epochs:
-            return base_lr * float(epoch + 1) / float(config.warmup_epochs)
-        remaining_epochs = max(config.n_epochs - config.warmup_epochs, 1)
-        progress = (epoch - config.warmup_epochs) / float(remaining_epochs)
-        progress = max(0.0, min(progress, 1.0))
-        return base_lr * 0.5 * (1.0 + math.cos(math.pi * progress))
-
     # -- checkpointing --------------------------------------------------
 
     def _maybe_resume(
@@ -743,7 +783,7 @@ class TorchFineTuneTrainer:
         }
         if config.checkpoint_dir is None:
             return 0, float("-inf"), 0, empty_history
-        ckpt_dir = Path(config.checkpoint_dir)
+        ckpt_dir = config.checkpoint_dir
         if not ckpt_dir.is_dir():
             ckpt_dir.mkdir(parents=True, exist_ok=True)
             return 0, float("-inf"), 0, empty_history
@@ -799,7 +839,7 @@ class TorchFineTuneTrainer:
     ) -> None:
         if config.checkpoint_dir is None:
             return
-        ckpt_dir = Path(config.checkpoint_dir)
+        ckpt_dir = config.checkpoint_dir
         ckpt_dir.mkdir(parents=True, exist_ok=True)
         path = ckpt_dir / f"epoch_{epoch:03d}.pt"
         blob = {
@@ -830,14 +870,14 @@ class TorchFineTuneTrainer:
         """URI of the best-epoch checkpoint (FINE_TUNING_DESIGN.md §3.2).
 
         ``best_epoch`` is the 0-indexed epoch with peak val-AUROC across
-        the resumed + new history; the returned URI matches the on-disk
-        ``epoch_{best:03d}.pt`` file (which is always present when
-        ``checkpoint_dir`` is set, since ``_maybe_save_checkpoint`` runs
-        every epoch).
+        the resumed + new history; the returned URI matches the
+        on-disk ``epoch_{best:03d}.pt`` file (which is always present
+        when ``checkpoint_dir`` is set, since ``_maybe_save_checkpoint``
+        runs every epoch).
         """
         if config.checkpoint_dir is None:
             return None
-        ckpt_dir = Path(config.checkpoint_dir)
+        ckpt_dir = config.checkpoint_dir
         path = ckpt_dir / f"epoch_{best_epoch:03d}.pt"
         return f"file://{path}"
 

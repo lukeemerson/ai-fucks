@@ -77,7 +77,7 @@ def _make_config(
     lr_schedule: str = "constant",
     warmup_epochs: int = 0,
     early_stop_patience: int | None = None,
-    checkpoint_dir: str | None = None,
+    checkpoint_dir: Path | None = None,
 ) -> TrainingConfig:
     return TrainingConfig(
         backbone_id=backbone_id,
@@ -142,19 +142,30 @@ def test_trainer_identifier_is_stable() -> None:
 
 
 def test_cosine_lr_schedule_climbs_through_warmup_then_decays() -> None:
-    """LR must climb linearly through warmup then decline per cosine."""
-    trainer = TorchFineTuneTrainer(device="cpu")
+    """LR must climb linearly through warmup then decline per cosine.
+
+    Drives the stateless ``_compute_lr_for_epoch`` helper directly per
+    M2 -- the trainer no longer carries mutable test-affordance instance
+    state. Same shape as the original test (warmup ramp followed by
+    cosine decay).
+    """
+    from harness.adapters.torch.trainer import _compute_lr_for_epoch
+
     cfg = _make_config(
         n_epochs=4,
         lr_schedule="cosine",
         warmup_epochs=2,
     )
-    train = _two_class_dataset(seed=0, n_rows=8)
-    val = _two_class_dataset(seed=1, n_rows=4)
-    _trained, _result = trainer.fit(
-        training_dataset=train, validation_dataset=val, config=cfg, seed=0
-    )
-    lrs = trainer.lr_per_epoch_for_test()
+    lrs = [
+        _compute_lr_for_epoch(
+            epoch=e,
+            base_lr=cfg.learning_rate,
+            n_epochs=cfg.n_epochs,
+            warmup_epochs=cfg.warmup_epochs,
+            schedule=cfg.lr_schedule,
+        )
+        for e in range(cfg.n_epochs)
+    ]
     assert len(lrs) == cfg.n_epochs
     # Warmup phase: epoch 0 < epoch 1 (linear ramp, both <= base LR).
     assert lrs[0] < lrs[1]
@@ -173,7 +184,7 @@ def test_cosine_lr_schedule_climbs_through_warmup_then_decays() -> None:
 def test_checkpoint_resume_continues_from_latest(tmp_path: Path) -> None:
     """Training from a 2-epoch checkpoint produces a valid 4-epoch result."""
     ckpt_dir = tmp_path / "ckpt"
-    cfg_initial = _make_config(n_epochs=2, checkpoint_dir=str(ckpt_dir))
+    cfg_initial = _make_config(n_epochs=2, checkpoint_dir=ckpt_dir)
     trainer_a = TorchFineTuneTrainer(device="cpu")
     train = _two_class_dataset(seed=0, n_rows=8)
     val = _two_class_dataset(seed=1, n_rows=4)
@@ -186,7 +197,7 @@ def test_checkpoint_resume_continues_from_latest(tmp_path: Path) -> None:
     assert result_a.n_epochs_run == 2
 
     # Resume with a longer schedule using the same ckpt dir.
-    cfg_resume = _make_config(n_epochs=4, checkpoint_dir=str(ckpt_dir))
+    cfg_resume = _make_config(n_epochs=4, checkpoint_dir=ckpt_dir)
     trainer_b = TorchFineTuneTrainer(device="cpu")
     _trained_b, result_b = trainer_b.fit(
         training_dataset=train,
@@ -203,10 +214,10 @@ def test_checkpoint_config_hash_mismatch_raises_adapter_error(
 ) -> None:
     """Changing config under the same ckpt dir must raise ``AdapterError``."""
     ckpt_dir = tmp_path / "ckpt"
-    cfg_a = _make_config(n_epochs=2, checkpoint_dir=str(ckpt_dir))
+    cfg_a = _make_config(n_epochs=2, checkpoint_dir=ckpt_dir)
     cfg_b = _make_config(
         n_epochs=2,
-        checkpoint_dir=str(ckpt_dir),
+        checkpoint_dir=ckpt_dir,
         backbone_id="resnet50",  # different config -> different hash
     )
     trainer = TorchFineTuneTrainer(device="cpu")
@@ -362,19 +373,29 @@ def test_invalid_device_override_raises_adapter_error() -> None:
 # ---------------------------------------------------------------------------
 
 
+class _ScriptedAurocDataset:
+    """A TrainingDatasetPort whose val-AUROC trajectory is *scripted* via the
+    held image content -- combined with the trainer's natural training
+    dynamics this is brittle. Instead, the test below uses checkpoint
+    snapshots: it captures the model state_dict at every epoch, then asserts
+    that the returned trained classifier's predictions match those of the
+    state_dict snapshot from the *best* (peak val-AUROC) epoch, not the last.
+    """
+
+
 def test_returned_classifier_uses_best_epoch_weights(tmp_path: Path) -> None:
     """The returned ``TrainedClassifierPort`` must reflect the best-epoch
     weights, not the last-epoch weights (FINE_TUNING_DESIGN.md §3.2).
 
-    Strategy: train for several epochs with checkpointing on. Then for
-    each persisted checkpoint, load it back into a fresh DenseNet121 +
-    linear head and run ``predict_proba`` over a fixed eval batch. Find
-    the checkpoint whose epoch matches ``result.best_epoch`` and assert
-    its predictions match the trainer's returned classifier
-    byte-identically. Requires the bug to be fixed: with the bug, the
-    returned classifier predicts using last-epoch weights, so the
-    assertion fails unless best_epoch happens to be the last epoch
-    (which we verify is NOT the case below).
+    Strategy: train for several epochs with checkpointing on. Then for each
+    persisted checkpoint, load it back into a fresh DenseNet121 + linear
+    head and run ``predict_proba`` over a fixed eval batch. Find the
+    checkpoint whose epoch matches ``result.best_epoch`` and assert its
+    predictions match the trainer's returned classifier byte-identically.
+    Requires the bug to be fixed: with the bug, the returned classifier
+    predicts using last-epoch weights, so the assertion fails unless
+    best_epoch happens to be the last epoch (which we verify is NOT the
+    case below).
     """
     import torch as _torch
     from torch import nn as _nn
@@ -383,17 +404,20 @@ def test_returned_classifier_uses_best_epoch_weights(tmp_path: Path) -> None:
     ckpt_dir = tmp_path / "ckpt"
     cfg = _make_config(
         n_epochs=4,
-        checkpoint_dir=str(ckpt_dir),
+        checkpoint_dir=ckpt_dir,
         image_size=(32, 32),
     )
     trainer = TorchFineTuneTrainer(device="cpu")
     train = _two_class_dataset(seed=0, n_rows=8)
+    # Use a small *different* val set so val-AUROC fluctuates and is
+    # unlikely to peak at the last epoch.
     val = _two_class_dataset(seed=42, n_rows=8)
     trained, result = trainer.fit(
         training_dataset=train, validation_dataset=val, config=cfg, seed=0
     )
     # Pre-condition for the test to actually exercise the bug: best epoch
-    # must NOT be the last epoch. With the configured tiny val set + 4
+    # must NOT be the last epoch. If best_epoch == last_epoch, the bug
+    # wouldn't show up here, but with the configured small val set + 4
     # epochs of training on 8 dark/bright rows, val-AUROC saturates fast
     # and the best epoch is almost always epoch 0 or 1.
     assert result.best_epoch != result.n_epochs_run - 1, (
@@ -414,6 +438,7 @@ def test_returned_classifier_uses_best_epoch_weights(tmp_path: Path) -> None:
     fresh_model.load_state_dict(blob["model_state_dict"])
     fresh_model.eval()
 
+    # Build an eval batch and run both models over identical NCHW input.
     eval_imgs = np.stack(
         [val[i][0] for i in range(len(val))], axis=0
     ).astype(np.float32)
@@ -441,9 +466,7 @@ def test_final_checkpoint_uri_points_to_best_epoch(tmp_path: Path) -> None:
     """``TrainingResult.final_checkpoint_uri`` must reference the best-epoch
     checkpoint, not the last-epoch checkpoint (FINE_TUNING_DESIGN.md §3.2)."""
     ckpt_dir = tmp_path / "ckpt"
-    cfg = _make_config(
-        n_epochs=4, checkpoint_dir=str(ckpt_dir), image_size=(32, 32)
-    )
+    cfg = _make_config(n_epochs=4, checkpoint_dir=ckpt_dir, image_size=(32, 32))
     trainer = TorchFineTuneTrainer(device="cpu")
     train = _two_class_dataset(seed=0, n_rows=8)
     val = _two_class_dataset(seed=42, n_rows=8)
@@ -455,3 +478,70 @@ def test_final_checkpoint_uri_points_to_best_epoch(tmp_path: Path) -> None:
     )
     assert result.final_checkpoint_uri is not None
     assert f"epoch_{result.best_epoch:03d}.pt" in result.final_checkpoint_uri
+
+
+# ---------------------------------------------------------------------------
+# Augmentation seed per (epoch, batch) (M1 fix; FINE_TUNING_DESIGN.md §7)
+# ---------------------------------------------------------------------------
+
+
+def test_compute_augmentation_seed_varies_across_epochs() -> None:
+    """The first batch of epoch 0 and epoch 1 must derive distinct
+    augmentation seeds. With the original ``aug_seed + n_batches``
+    formulation the first batch of every epoch reused the same seed."""
+    from harness.adapters.torch.trainer import _augmentation_seed
+
+    base_seed = 12345
+    seed_e0_b0 = _augmentation_seed(base_seed, epoch=0, batch_idx=0)
+    seed_e1_b0 = _augmentation_seed(base_seed, epoch=1, batch_idx=0)
+    seed_e2_b0 = _augmentation_seed(base_seed, epoch=2, batch_idx=0)
+    assert seed_e0_b0 != seed_e1_b0
+    assert seed_e1_b0 != seed_e2_b0
+    assert seed_e0_b0 != seed_e2_b0
+    # Within an epoch, batch_idx still varies the seed.
+    seed_e0_b1 = _augmentation_seed(base_seed, epoch=0, batch_idx=1)
+    assert seed_e0_b0 != seed_e0_b1
+
+
+# ---------------------------------------------------------------------------
+# LR schedule helper as static (M2 fix; FINE_TUNING_DESIGN.md §5)
+# ---------------------------------------------------------------------------
+
+
+def test_compute_lr_for_epoch_static_helper_warmup_then_cosine() -> None:
+    """The LR schedule is computed via a stateless ``_compute_lr_for_epoch``
+    helper; the same warmup + cosine semantics apply."""
+    from harness.adapters.torch.trainer import _compute_lr_for_epoch
+
+    base_lr = 1e-3
+    n_epochs = 4
+    warmup_epochs = 2
+    lrs = [
+        _compute_lr_for_epoch(
+            epoch=e,
+            base_lr=base_lr,
+            n_epochs=n_epochs,
+            warmup_epochs=warmup_epochs,
+            schedule="cosine",
+        )
+        for e in range(n_epochs)
+    ]
+    # Warmup ramp: lrs[0] < lrs[1] (1/2 * base, 2/2 * base).
+    assert lrs[0] < lrs[1]
+    assert lrs[1] == pytest.approx(base_lr)
+    # Cosine decay: lrs[2] > lrs[3].
+    assert lrs[2] > lrs[3]
+
+
+def test_compute_lr_for_epoch_constant_schedule() -> None:
+    from harness.adapters.torch.trainer import _compute_lr_for_epoch
+
+    base_lr = 5e-4
+    for e in range(5):
+        assert _compute_lr_for_epoch(
+            epoch=e,
+            base_lr=base_lr,
+            n_epochs=5,
+            warmup_epochs=0,
+            schedule="constant",
+        ) == base_lr

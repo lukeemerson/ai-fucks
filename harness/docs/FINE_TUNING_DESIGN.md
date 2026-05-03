@@ -331,6 +331,17 @@ and in the `_ALLOWED_OPTIMIZERS` tuple in `harness/domain/types.py` --
 so both the doc and the code agree. v1.2 will lift the literal when
 SGD is wired.
 
+#### §3.1 fix-wave deviation (`checkpoint_dir` typing)
+
+The Wave 4 review (M3) flagged that `checkpoint_dir` shipped as
+`str | None` in `harness/domain/types.py` despite the design declaring
+`Path | None` and CLAUDE.md mandating `pathlib.Path` everywhere. The
+fix wave updates the field to `Path | None`, drops the `str(...)` cast
+in the factory call site, and simplifies the trainer's consumption
+sites to use `Path` operations directly (`ckpt_dir = config.checkpoint_dir;
+ckpt_dir / "epoch_NNN.pt"`). No behaviour change; the field type now
+matches the design doc and the CLAUDE.md style rule.
+
 ### 3.2 `TrainingResult`
 
 ```python
@@ -612,6 +623,19 @@ PR). Spec:
   backbone, LR, augmentations, image size, etc.) still fails fast with
   `AdapterError`.
 
+  **§5 fix-wave deviation: `torch.load(weights_only=False)`.** The
+  v1.1 trainer uses `torch.load(weights_only=False)` to deserialise
+  the full checkpoint dict (model + optimizer + scheduler + numpy RNG
+  state + bookkeeping fields). PyTorch 2.4+ defaults to
+  `weights_only=True`, which would reject this dict. Switching to
+  `weights_only=True` requires splitting the checkpoint into a `.pt`
+  file (model + optimizer state dicts only) and a sidecar JSON file
+  (config_hash, epoch counters, RNG state coerced to JSON). Deferred
+  to v1.2 because (a) the harness's checkpoints are local-only
+  artifacts in v1.1, and (b) the refactor touches the load/resume
+  path with non-trivial regression risk this close to the v1.1 ship
+  gate. Tracked as TODO for v1.2 (Wave 4 review M4).
+
 * **Returned `TrainedClassifierPort`.** A small adapter class
   (`_TorchTrainedClassifier`) that wraps the trained `nn.Module` in
   `eval()` mode and exposes `predict_proba` as
@@ -633,17 +657,25 @@ PR). Spec:
   non-byte-reproducible across devices (same v1 limitation as the eval-only
   adapters; see ARCHITECTURE.md §13.5).
 
-  **v1.1 deviation (open question).** Some torchvision transforms
-  (`RandomRotation`, `ColorJitter`) sample from the global torch RNG and
-  do not currently accept a generator argument. If the implementation agent
-  finds this a blocker, two fall-back strategies in priority order:
+  **v1.1 deviation (open question, resolved).** Some torchvision
+  transforms (`RandomRotation`, `ColorJitter`) sample from the global
+  torch RNG and do not currently accept a generator argument. The v1.1
+  implementation chose Option 1 (use `torchvision.transforms.v2`,
+  generator-aware end-to-end) and combines it with a per-(epoch,
+  batch) `torch.manual_seed` inside `torch.random.fork_rng(devices=[])`
+  to keep RNG mutation scoped.
 
-  1. Use `torchvision.transforms.v2` which is generator-aware end-to-end.
-  2. Fall back to `torch.manual_seed(seed)` once at the start of each
-     epoch and document the deviation in §13 of ARCHITECTURE.md (same
-     pattern the eval-only torch backbones use).
-
-  Decision deferred to the implementation agent.
+  **§5 fix-wave deviation: per-(epoch, batch) augmentation seed.** The
+  v1.1 implementation initially derived the per-step augmentation seed
+  as `aug_gen.initial_seed() + n_batches` (Wave 4 review M1). Because
+  `n_batches` reset to 0 each epoch, batch position 0 in every epoch
+  saw identical augmentation parameters. The fix wave threads `epoch`
+  into the helper `_augmentation_seed(base_seed, epoch=..., batch_idx=...)`
+  which derives the per-step seed as
+  `base_seed + epoch * 100003 + batch_idx`. The 100003 prime stride
+  is large enough that any plausible `(n_epochs, batches_per_epoch)`
+  combination avoids collisions. Determinism for a fixed
+  `(seed, dataset, n_epochs)` triple is preserved.
 
 ---
 

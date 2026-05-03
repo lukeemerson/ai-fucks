@@ -21,6 +21,7 @@ from __future__ import annotations
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -418,7 +419,7 @@ class TrainingConfig:
     warmup_epochs: int
     augmentations: tuple[str, ...]
     image_size: tuple[int, int]
-    checkpoint_dir: str | None  # absolute path string; None disables checkpointing
+    checkpoint_dir: Path | None  # None disables checkpointing
     early_stop_patience: int | None
     num_dataloader_workers: int
 

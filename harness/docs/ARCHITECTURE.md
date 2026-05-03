@@ -1287,27 +1287,51 @@ verbatim in the implementation PR).**
 * §5 (augmentation determinism): the design's open question between
   v2 transforms vs per-epoch global `torch.manual_seed` is resolved in
   favour of the v2 path. The trainer wraps each augmentation call in
-  `torch.random.fork_rng(devices=[])` + a per-batch
-  `torch.manual_seed(<seed_from_scoped_generator> + batch_idx)`, so the
+  `torch.random.fork_rng(devices=[])` + a per-(epoch, batch)
+  `torch.manual_seed(_augmentation_seed(base, epoch, batch_idx))`, so the
   augmentation pipeline is deterministic for a given `(seed, dataset)`
   pair without any global RNG mutation outside the `fork_rng` scope.
-* §3.2 (best-epoch weights, Wave 4 review C1 fix): the design doc says
-  "the returned ``TrainedClassifierPort`` corresponds to this [best]
-  epoch's weights" and "URI of the persisted best-epoch checkpoint"
-  but the v1.1 implementation initially returned a classifier wrapping
-  the *last*-epoch weights, and `final_checkpoint_uri` pointed at
-  ``epoch_{n_epochs_run-1:03d}.pt``. The fix wave snapshots
-  ``model.state_dict()`` whenever val-AUROC improves
+  ``_augmentation_seed`` derives the per-step seed via
+  ``base_seed + epoch * 100003 + batch_idx`` so batch position 0 sees
+  distinct augmentation parameters across epochs (Wave 4 review M1
+  fix; the original ``base_seed + n_batches`` formulation reset
+  ``n_batches`` per epoch and aliased batch 0 across epochs).
+* §3.1 (`checkpoint_dir` typing): the design doc declares
+  `checkpoint_dir: Path | None`; the v1.1 implementation initially
+  shipped `str | None` (Wave 4 review M3). The fix wave updates the
+  field to `Path | None` to match the design doc and CLAUDE.md's
+  "pathlib.Path everywhere" rule. The factory call site no longer
+  coerces to `str`; the trainer consumes the `Path` directly via
+  ``ckpt_dir = config.checkpoint_dir`` and ``ckpt_dir / "epoch_NNN.pt"``.
+* §3.2 (best-epoch weights): the design doc says "the returned
+  ``TrainedClassifierPort`` corresponds to this [best] epoch's
+  weights" and "URI of the persisted best-epoch checkpoint" but the
+  v1.1 implementation initially returned a classifier wrapping the
+  *last*-epoch weights, and `final_checkpoint_uri` pointed at
+  ``epoch_{n_epochs_run-1:03d}.pt`` (Wave 4 review C1). The fix wave
+  snapshots ``model.state_dict()`` whenever val-AUROC improves
   (`copy.deepcopy` into ``best_state``), restores it before
   constructing ``_TorchTrainedClassifier``, and rewrites
   `final_checkpoint_uri` to point at ``epoch_{best_epoch:03d}.pt``.
   Non-best per-epoch ``epoch_*.pt`` files remain on disk for resume.
-* §13.9 model-card lineage (Wave 4 review C2 fix): the runner's first
-  cut wired the trainer's port-level ``identifier``
-  (``"torch.finetune.v1"``) into both the ``backbone_id`` and
-  ``head_id`` slots of the persisted ``ModelCard``, collapsing the
-  densenet121-vs-resnet50 distinction. The fix wave routes
-  ``config.backbone_id`` and ``config.head_id`` (set by the factory to
+* §13.9 model-card lineage (C2): the runner's first cut wired the
+  trainer's port-level ``identifier`` (``"torch.finetune.v1"``) into
+  both the ``backbone_id`` and ``head_id`` slots of the persisted
+  ``ModelCard``, collapsing the densenet121-vs-resnet50 distinction
+  (Wave 4 review C2). The fix wave routes ``config.backbone_id`` and
+  ``config.head_id`` (set by the factory to
   ``"torch.finetune.{backbone}.v1"`` and ``"torch.finetune.linear.v1"``
   respectively) directly into ``_build_model_card``; the calibrator
   slot is unaffected (still uses ``_describe_port(calibrator, ...)``).
+* §5 (`torch.load(weights_only=False)`): v1.1 uses
+  `torch.load(weights_only=False)` to deserialise the full checkpoint
+  dict including optimizer state, scheduler state, and numpy RNG
+  state. PyTorch 2.4+ defaults to `weights_only=True`, which would
+  reject this dict. Switching to `weights_only=True` requires
+  splitting checkpoints into a `.pt` file (model + optimizer state
+  dicts only) and a sidecar JSON file (config_hash, epoch counters,
+  RNG state coerced to JSON). Deferred to v1.2 because (a) the
+  harness's checkpoints are local-only artifacts in v1.1, and (b) the
+  refactor touches the load/resume path with non-trivial regression
+  risk this close to the v1.1 ship gate. Tracked as TODO for v1.2
+  (Wave 4 review M4).

@@ -542,7 +542,7 @@ def _make_default_training_config(
         warmup_epochs=min(1, n_epochs),
         augmentations=augmentations,
         image_size=image_size,
-        checkpoint_dir=str(checkpoint_dir) if checkpoint_dir is not None else None,
+        checkpoint_dir=checkpoint_dir,
         early_stop_patience=None,
         num_dataloader_workers=0,
     )

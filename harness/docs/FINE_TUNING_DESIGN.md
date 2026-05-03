@@ -489,6 +489,24 @@ strictly between steps 6-7 (where features-then-fit becomes train-then-eval).
 A cautious refactor in the implementation PR may extract steps 8-12 into a
 shared helper; the design does not depend on that.
 
+#### §4.2 fix-wave deviation (model-card lineage)
+
+The Wave 4 review (C2) flagged that the §4.2 step-10 pseudocode
+(``model_card = _build_model_card(..., trainer_id=trainer.identifier, ...)``)
+collapsed the densenet121-vs-resnet50 distinction in the persisted
+`ModelCard`: both backbones produced `backbone="torch.finetune.v1"`
+and `head="torch.finetune.v1"`. The fix wave routes
+`config.backbone_id` (set by the factory to
+`"torch.finetune.{backbone}.v1"`) and `config.head_id` (set by the
+factory to `"torch.finetune.linear.v1"`) directly into
+`_build_model_card` for the fine-tune runner. The frozen-feature
+runner (`run_experiment`) is unaffected and still uses
+`_describe_port` for its `backbone`/`head` slots. The calibrator
+slot in the fine-tune runner is also unaffected (still uses
+`_describe_port(calibrator, ...)`). Verified by
+`test_finetune_model_card_records_backbone_lineage` which runs both
+backbones and asserts the persisted `ModelCard.backbone` differs.
+
 ### 4.3 `_build_training_dataset` helper
 
 ```python

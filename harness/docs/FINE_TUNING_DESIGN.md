@@ -368,6 +368,23 @@ class TrainingResult:
 The runner records the result in the model card; the trained classifier
 flows into the eval chain.
 
+#### §3.2 fix-wave deviation (best-epoch weights restoration)
+
+The Wave 4 review (C1) flagged that the v1.1 trainer's first cut
+returned a `_TorchTrainedClassifier` wrapping the *last*-epoch model
+state and computed `final_checkpoint_uri` as
+``epoch_{n_epochs_run-1:03d}.pt``, both contradicting the design's
+"corresponds to this [best] epoch's weights" / "URI of the persisted
+best-epoch checkpoint" wording. The fix wave snapshots
+`model.state_dict()` whenever val-AUROC improves
+(`copy.deepcopy(...)` into `best_state`), restores it before
+constructing the returned classifier, and rewrites
+`final_checkpoint_uri` to point at ``epoch_{best_epoch:03d}.pt``.
+On resume the wave seeds `best_state` from the existing
+``epoch_{best_epoch_so_far:03d}.pt`` so a pure-resume call (no new
+epochs) still returns best-epoch weights. Non-best per-epoch
+``epoch_*.pt`` files remain on disk for future resume.
+
 ---
 
 ## 4. Composition wiring

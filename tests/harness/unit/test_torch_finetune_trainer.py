@@ -355,3 +355,103 @@ def test_predict_proba_rejects_3d_input() -> None:
 def test_invalid_device_override_raises_adapter_error() -> None:
     with pytest.raises(AdapterError):
         TorchFineTuneTrainer(device="tpu")  # type: ignore[arg-type]  # reason: invalid value test
+
+
+# ---------------------------------------------------------------------------
+# Best-epoch weights restoration (C1 fix; FINE_TUNING_DESIGN.md §3.2)
+# ---------------------------------------------------------------------------
+
+
+def test_returned_classifier_uses_best_epoch_weights(tmp_path: Path) -> None:
+    """The returned ``TrainedClassifierPort`` must reflect the best-epoch
+    weights, not the last-epoch weights (FINE_TUNING_DESIGN.md §3.2).
+
+    Strategy: train for several epochs with checkpointing on. Then for
+    each persisted checkpoint, load it back into a fresh DenseNet121 +
+    linear head and run ``predict_proba`` over a fixed eval batch. Find
+    the checkpoint whose epoch matches ``result.best_epoch`` and assert
+    its predictions match the trainer's returned classifier
+    byte-identically. Requires the bug to be fixed: with the bug, the
+    returned classifier predicts using last-epoch weights, so the
+    assertion fails unless best_epoch happens to be the last epoch
+    (which we verify is NOT the case below).
+    """
+    import torch as _torch
+    from torch import nn as _nn
+    from torchvision.models import densenet121 as _dn
+
+    ckpt_dir = tmp_path / "ckpt"
+    cfg = _make_config(
+        n_epochs=4,
+        checkpoint_dir=str(ckpt_dir),
+        image_size=(32, 32),
+    )
+    trainer = TorchFineTuneTrainer(device="cpu")
+    train = _two_class_dataset(seed=0, n_rows=8)
+    val = _two_class_dataset(seed=42, n_rows=8)
+    trained, result = trainer.fit(
+        training_dataset=train, validation_dataset=val, config=cfg, seed=0
+    )
+    # Pre-condition for the test to actually exercise the bug: best epoch
+    # must NOT be the last epoch. With the configured tiny val set + 4
+    # epochs of training on 8 dark/bright rows, val-AUROC saturates fast
+    # and the best epoch is almost always epoch 0 or 1.
+    assert result.best_epoch != result.n_epochs_run - 1, (
+        f"test setup failed to elicit best_epoch != last_epoch: "
+        f"best={result.best_epoch} n_run={result.n_epochs_run}"
+    )
+
+    # Load the best-epoch checkpoint into a fresh model and compare
+    # predictions. We construct the same DenseNet121 + Linear head shape
+    # the trainer uses internally.
+    best_ckpt = ckpt_dir / f"epoch_{result.best_epoch:03d}.pt"
+    assert best_ckpt.is_file(), f"missing best-epoch checkpoint {best_ckpt}"
+    blob = _torch.load(best_ckpt, map_location="cpu", weights_only=False)
+    fresh_model = _dn(weights=None)
+    fresh_model.classifier = _nn.Linear(
+        fresh_model.classifier.in_features, cfg.n_labels
+    )
+    fresh_model.load_state_dict(blob["model_state_dict"])
+    fresh_model.eval()
+
+    eval_imgs = np.stack(
+        [val[i][0] for i in range(len(val))], axis=0
+    ).astype(np.float32)
+    out_returned = trained.predict_proba(eval_imgs)
+    # Mirror the same preprocessing as ``_TorchTrainedClassifier._forward_chunk``.
+    import torch.nn.functional as _F
+
+    nhwc = _torch.from_numpy(eval_imgs)
+    nchw = nhwc.permute(0, 3, 1, 2).contiguous()
+    if nchw.shape[1] == 1:
+        nchw = nchw.repeat(1, 3, 1, 1)
+    h, w = cfg.image_size
+    if nchw.shape[2] != h or nchw.shape[3] != w:
+        nchw = _F.interpolate(nchw, size=(h, w), mode="bilinear", align_corners=False)
+    mean = _torch.tensor((0.485, 0.456, 0.406)).view(1, 3, 1, 1)
+    std = _torch.tensor((0.229, 0.224, 0.225)).view(1, 3, 1, 1)
+    normalized = (nchw - mean) / std
+    with _torch.no_grad():
+        logits = fresh_model(normalized)
+        out_fresh = _torch.sigmoid(logits).numpy().astype(np.float32)
+    np.testing.assert_allclose(out_returned, out_fresh, rtol=1e-5, atol=1e-6)
+
+
+def test_final_checkpoint_uri_points_to_best_epoch(tmp_path: Path) -> None:
+    """``TrainingResult.final_checkpoint_uri`` must reference the best-epoch
+    checkpoint, not the last-epoch checkpoint (FINE_TUNING_DESIGN.md §3.2)."""
+    ckpt_dir = tmp_path / "ckpt"
+    cfg = _make_config(
+        n_epochs=4, checkpoint_dir=str(ckpt_dir), image_size=(32, 32)
+    )
+    trainer = TorchFineTuneTrainer(device="cpu")
+    train = _two_class_dataset(seed=0, n_rows=8)
+    val = _two_class_dataset(seed=42, n_rows=8)
+    _trained, result = trainer.fit(
+        training_dataset=train, validation_dataset=val, config=cfg, seed=0
+    )
+    assert result.best_epoch != result.n_epochs_run - 1, (
+        "test setup failed to elicit best_epoch != last_epoch"
+    )
+    assert result.final_checkpoint_uri is not None
+    assert f"epoch_{result.best_epoch:03d}.pt" in result.final_checkpoint_uri

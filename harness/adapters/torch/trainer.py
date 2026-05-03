@@ -46,6 +46,7 @@ Out of scope (FINE_TUNING_DESIGN.md §8)
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import math
@@ -477,6 +478,38 @@ class TorchFineTuneTrainer:
         val_aurocs: list[float] = list(history["val_aurocs"])
         lr_per_epoch: list[float] = list(history["lr_per_epoch"])
 
+        # Best-epoch state tracking (C1 fix). On a fresh run ``best_state``
+        # starts as ``None``; on resume we re-derive it from the best epoch
+        # in the persisted history (if any) by loading
+        # ``epoch_{best_epoch_so_far:03d}.pt`` from disk. The in-memory
+        # state_dict is the source of truth for what the returned classifier
+        # wraps; the on-disk ``epoch_{best:03d}.pt`` file stays in sync via
+        # ``_maybe_save_checkpoint`` calls per epoch.
+        best_state: dict[str, torch.Tensor] | None = None
+        best_epoch_so_far: int = (
+            int(np.argmax(val_aurocs)) if val_aurocs else -1
+        )
+        if best_epoch_so_far >= 0 and config.checkpoint_dir is not None:
+            ckpt_path = (
+                Path(config.checkpoint_dir)
+                / f"epoch_{best_epoch_so_far:03d}.pt"
+            )
+            if ckpt_path.is_file():
+                try:
+                    blob = torch.load(
+                        ckpt_path,
+                        map_location=self._device,
+                        weights_only=False,
+                    )
+                except Exception as exc:  # noqa: BLE001  # reason: surface as AdapterError
+                    raise AdapterError(
+                        f"failed to load best-epoch checkpoint {ckpt_path}: {exc}"
+                    ) from exc
+                best_state = {
+                    k: v.detach().clone()
+                    for k, v in blob["model_state_dict"].items()
+                }
+
         for epoch in range(start_epoch, config.n_epochs):
             lr = self._compute_lr(config=config, epoch=epoch)
             for group in optimizer.param_groups:
@@ -504,6 +537,10 @@ class TorchFineTuneTrainer:
             if improved:
                 best_auroc = val_auroc
                 epochs_without_imp = 0
+                # C1: snapshot best-epoch weights so the returned
+                # TrainedClassifierPort reflects this epoch, not the last.
+                best_state = copy.deepcopy(model.state_dict())
+                best_epoch_so_far = epoch
             else:
                 epochs_without_imp += 1
             self._maybe_save_checkpoint(
@@ -530,10 +567,17 @@ class TorchFineTuneTrainer:
                 "fit completed without running any epochs (resume detected "
                 "an already-completed run; supply a fresh checkpoint_dir)"
             )
-        # Best epoch by val-AUROC.
+        # Best epoch by val-AUROC across the full (resumed + new) history.
         best_epoch = int(np.argmax(val_aurocs))
+        # C1: load the best-epoch weights into the model before wrapping
+        # it in the returned classifier. ``best_state`` is populated either
+        # by the in-loop snapshot above (when at least one epoch ran) or
+        # by the resume-side load (when start_epoch == n_epochs and no
+        # new epoch outperformed the resumed best).
+        if best_state is not None:
+            model.load_state_dict(best_state)
         final_checkpoint_uri = (
-            self._final_checkpoint_uri(config=config, n_epochs_run=n_epochs_run)
+            self._final_checkpoint_uri(config=config, best_epoch=best_epoch)
             if config.checkpoint_dir is not None
             else None
         )
@@ -781,12 +825,20 @@ class TorchFineTuneTrainer:
             ) from exc
 
     def _final_checkpoint_uri(
-        self, *, config: TrainingConfig, n_epochs_run: int
+        self, *, config: TrainingConfig, best_epoch: int
     ) -> str | None:
+        """URI of the best-epoch checkpoint (FINE_TUNING_DESIGN.md §3.2).
+
+        ``best_epoch`` is the 0-indexed epoch with peak val-AUROC across
+        the resumed + new history; the returned URI matches the on-disk
+        ``epoch_{best:03d}.pt`` file (which is always present when
+        ``checkpoint_dir`` is set, since ``_maybe_save_checkpoint`` runs
+        every epoch).
+        """
         if config.checkpoint_dir is None:
             return None
         ckpt_dir = Path(config.checkpoint_dir)
-        path = ckpt_dir / f"epoch_{n_epochs_run - 1:03d}.pt"
+        path = ckpt_dir / f"epoch_{best_epoch:03d}.pt"
         return f"file://{path}"
 
 

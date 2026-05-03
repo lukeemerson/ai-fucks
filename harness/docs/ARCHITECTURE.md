@@ -1291,3 +1291,14 @@ verbatim in the implementation PR).**
   `torch.manual_seed(<seed_from_scoped_generator> + batch_idx)`, so the
   augmentation pipeline is deterministic for a given `(seed, dataset)`
   pair without any global RNG mutation outside the `fork_rng` scope.
+* §3.2 (best-epoch weights, Wave 4 review C1 fix): the design doc says
+  "the returned ``TrainedClassifierPort`` corresponds to this [best]
+  epoch's weights" and "URI of the persisted best-epoch checkpoint"
+  but the v1.1 implementation initially returned a classifier wrapping
+  the *last*-epoch weights, and `final_checkpoint_uri` pointed at
+  ``epoch_{n_epochs_run-1:03d}.pt``. The fix wave snapshots
+  ``model.state_dict()`` whenever val-AUROC improves
+  (`copy.deepcopy` into ``best_state``), restores it before
+  constructing ``_TorchTrainedClassifier``, and rewrites
+  `final_checkpoint_uri` to point at ``epoch_{best_epoch:03d}.pt``.
+  Non-best per-epoch ``epoch_*.pt`` files remain on disk for resume.

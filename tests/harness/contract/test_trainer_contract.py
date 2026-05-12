@@ -29,22 +29,17 @@ module imports cleanly today, while the abstract methods that *use*
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 import numpy as np
 import pytest
 from numpy.typing import NDArray
 
 from harness.domain.errors import AdapterError
+from harness.domain.types import TrainingConfig
 from harness.ports.trainer import (
     TrainedClassifierPort,
     TrainerPort,
     TrainingDatasetPort,
 )
-
-if TYPE_CHECKING:
-    # Available once the implementation PR adds these to harness.domain.types.
-    from harness.domain.types import TrainingConfig
 
 
 class _TinyDataset:
@@ -284,8 +279,51 @@ class TrainerPortContract:
 
 
 # ---------------------------------------------------------------------------
-# Concrete subclasses are added by the v1.1 implementation PR. The abstract
-# base above ships in this design PR with no subclasses; pytest does not
-# collect ``TrainerPortContract`` (no leading ``Test``) so this file
-# contributes zero tests to the default suite.
+# Concrete subclasses for v1.1.
+#
+# ``TestTorchFineTuneTrainerContract`` ships the trainer-on-CPU adapter
+# against the abstract base's two-class _TinyDataset. Tagged ``torch`` so the
+# default fast suite (``-m 'not smoke and not slow and not torch'``) skips
+# the heavy DenseNet121 forward+backward pass; opt in with ``pytest -m
+# torch``.
 # ---------------------------------------------------------------------------
+
+
+def _torch_finetune_tiny_config() -> TrainingConfig:
+    """A TrainingConfig calibrated for ``_TinyDataset`` (16 rows, 8x8x1).
+
+    Uses CPU + 32x32 resize + constant LR + no augmentation so the trainer
+    converges within 4 epochs and the contract's
+    ``test_loss_decreases_monotonically`` assertion fires reliably.
+    """
+    return TrainingConfig(
+        backbone_id="densenet121",
+        n_labels=2,
+        n_epochs=4,
+        batch_size=4,
+        learning_rate=1e-3,
+        weight_decay=0.0,
+        optimizer="adamw",
+        lr_schedule="constant",
+        warmup_epochs=0,
+        augmentations=(),
+        image_size=(32, 32),
+        checkpoint_dir=None,
+        early_stop_patience=None,
+        num_dataloader_workers=0,
+    )
+
+
+@pytest.mark.torch
+class TestTorchFineTuneTrainerContract(TrainerPortContract):
+    """Concrete contract subclass for :class:`TorchFineTuneTrainer`."""
+
+    @pytest.fixture
+    def adapter(self) -> TrainerPort:
+        from harness.adapters.torch.trainer import TorchFineTuneTrainer
+
+        return TorchFineTuneTrainer(device="cpu")
+
+    @pytest.fixture
+    def training_config(self) -> TrainingConfig:
+        return _torch_finetune_tiny_config()

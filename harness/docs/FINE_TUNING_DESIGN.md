@@ -271,9 +271,13 @@ class TrainingConfig:
     weight_decay: float
     """L2 regularization. Must be >= 0."""
 
-    optimizer: Literal["adamw", "sgd"]
-    """Optimizer choice. v1.1 ships ``"adamw"`` only; ``"sgd"`` validated for
-    follow-up. Other strings raise ``ConfigError``."""
+    optimizer: Literal["adamw"]
+    """Optimizer choice. v1.1 ships ``"adamw"`` only; the literal is
+    narrowed to ``Literal["adamw"]`` to remove the §3 / §5 drift the
+    original design surfaced. The ``__post_init__`` validator rejects
+    any other value with ``ConfigError``. v1.2 will lift the literal
+    when SGD is wired (see §3.1 deviation, this section, in the
+    implementation PR)."""
 
     lr_schedule: Literal["cosine", "constant"]
     """LR schedule. v1.1 ships both; defaults to ``"cosine"`` per CheXNet's recipe."""
@@ -317,6 +321,27 @@ class TrainingConfig:
 * `early_stop_patience is None or early_stop_patience > 0`.
 * `num_dataloader_workers == 0` (raise `ConfigError` otherwise; v1.1 lock).
 
+#### §3.1 implementation deviation
+
+The original §3.1 declaration `optimizer: Literal["adamw", "sgd"]` was
+walked back inline in §5 ("Wait — that is YAGNI-violating. Revised: drop
+``"sgd"`` from the Literal until v1.2"). The implementation PR ships the
+narrower `Literal["adamw"]` form everywhere -- in the docstring above
+and in the `_ALLOWED_OPTIMIZERS` tuple in `harness/domain/types.py` --
+so both the doc and the code agree. v1.2 will lift the literal when
+SGD is wired.
+
+#### §3.1 fix-wave deviation (`checkpoint_dir` typing)
+
+The Wave 4 review (M3) flagged that `checkpoint_dir` shipped as
+`str | None` in `harness/domain/types.py` despite the design declaring
+`Path | None` and CLAUDE.md mandating `pathlib.Path` everywhere. The
+fix wave updates the field to `Path | None`, drops the `str(...)` cast
+in the factory call site, and simplifies the trainer's consumption
+sites to use `Path` operations directly (`ckpt_dir = config.checkpoint_dir;
+ckpt_dir / "epoch_NNN.pt"`). No behaviour change; the field type now
+matches the design doc and the CLAUDE.md style rule.
+
 ### 3.2 `TrainingResult`
 
 ```python
@@ -353,6 +378,23 @@ class TrainingResult:
 `TrainerPort.fit` returns `tuple[TrainedClassifierPort, TrainingResult]`.
 The runner records the result in the model card; the trained classifier
 flows into the eval chain.
+
+#### §3.2 fix-wave deviation (best-epoch weights restoration)
+
+The Wave 4 review (C1) flagged that the v1.1 trainer's first cut
+returned a `_TorchTrainedClassifier` wrapping the *last*-epoch model
+state and computed `final_checkpoint_uri` as
+``epoch_{n_epochs_run-1:03d}.pt``, both contradicting the design's
+"corresponds to this [best] epoch's weights" / "URI of the persisted
+best-epoch checkpoint" wording. The fix wave snapshots
+`model.state_dict()` whenever val-AUROC improves
+(`copy.deepcopy(...)` into `best_state`), restores it before
+constructing the returned classifier, and rewrites
+`final_checkpoint_uri` to point at ``epoch_{best_epoch:03d}.pt``.
+On resume the wave seeds `best_state` from the existing
+``epoch_{best_epoch_so_far:03d}.pt`` so a pure-resume call (no new
+epochs) still returns best-epoch weights. Non-best per-epoch
+``epoch_*.pt`` files remain on disk for future resume.
 
 ---
 
@@ -446,6 +488,24 @@ Steps 8-12 are byte-identical to the frozen-feature runner. The fork is
 strictly between steps 6-7 (where features-then-fit becomes train-then-eval).
 A cautious refactor in the implementation PR may extract steps 8-12 into a
 shared helper; the design does not depend on that.
+
+#### §4.2 fix-wave deviation (model-card lineage)
+
+The Wave 4 review (C2) flagged that the §4.2 step-10 pseudocode
+(``model_card = _build_model_card(..., trainer_id=trainer.identifier, ...)``)
+collapsed the densenet121-vs-resnet50 distinction in the persisted
+`ModelCard`: both backbones produced `backbone="torch.finetune.v1"`
+and `head="torch.finetune.v1"`. The fix wave routes
+`config.backbone_id` (set by the factory to
+`"torch.finetune.{backbone}.v1"`) and `config.head_id` (set by the
+factory to `"torch.finetune.linear.v1"`) directly into
+`_build_model_card` for the fine-tune runner. The frozen-feature
+runner (`run_experiment`) is unaffected and still uses
+`_describe_port` for its `backbone`/`head` slots. The calibrator
+slot in the fine-tune runner is also unaffected (still uses
+`_describe_port(calibrator, ...)`). Verified by
+`test_finetune_model_card_records_backbone_lineage` which runs both
+backbones and asserts the persisted `ModelCard.backbone` differs.
 
 ### 4.3 `_build_training_dataset` helper
 
@@ -570,6 +630,30 @@ PR). Spec:
   state, continue from `epoch + 1`. Mismatched config means a logically
   different run; the operator must use a different `checkpoint_dir`.
 
+  **§5 implementation deviation: hash excludes `n_epochs` and
+  `early_stop_patience`.** Strict equality on the full config dict is
+  incompatible with the design's own resume use case in §6.2 ("train 3
+  epochs to checkpoint dir, load via a fresh trainer with `n_epochs=5`,
+  assert it ran exactly 2 more epochs"). The implementation's
+  `_config_hash` excludes those two fields via the
+  `_HASH_EXCLUDED_FIELDS` constant in `harness/adapters/torch/trainer.py`;
+  every other field participates. A logically different run (different
+  backbone, LR, augmentations, image size, etc.) still fails fast with
+  `AdapterError`.
+
+  **§5 fix-wave deviation: `torch.load(weights_only=False)`.** The
+  v1.1 trainer uses `torch.load(weights_only=False)` to deserialise
+  the full checkpoint dict (model + optimizer + scheduler + numpy RNG
+  state + bookkeeping fields). PyTorch 2.4+ defaults to
+  `weights_only=True`, which would reject this dict. Switching to
+  `weights_only=True` requires splitting the checkpoint into a `.pt`
+  file (model + optimizer state dicts only) and a sidecar JSON file
+  (config_hash, epoch counters, RNG state coerced to JSON). Deferred
+  to v1.2 because (a) the harness's checkpoints are local-only
+  artifacts in v1.1, and (b) the refactor touches the load/resume
+  path with non-trivial regression risk this close to the v1.1 ship
+  gate. Tracked as TODO for v1.2 (Wave 4 review M4).
+
 * **Returned `TrainedClassifierPort`.** A small adapter class
   (`_TorchTrainedClassifier`) that wraps the trained `nn.Module` in
   `eval()` mode and exposes `predict_proba` as
@@ -591,17 +675,25 @@ PR). Spec:
   non-byte-reproducible across devices (same v1 limitation as the eval-only
   adapters; see ARCHITECTURE.md §13.5).
 
-  **v1.1 deviation (open question).** Some torchvision transforms
-  (`RandomRotation`, `ColorJitter`) sample from the global torch RNG and
-  do not currently accept a generator argument. If the implementation agent
-  finds this a blocker, two fall-back strategies in priority order:
+  **v1.1 deviation (open question, resolved).** Some torchvision
+  transforms (`RandomRotation`, `ColorJitter`) sample from the global
+  torch RNG and do not currently accept a generator argument. The v1.1
+  implementation chose Option 1 (use `torchvision.transforms.v2`,
+  generator-aware end-to-end) and combines it with a per-(epoch,
+  batch) `torch.manual_seed` inside `torch.random.fork_rng(devices=[])`
+  to keep RNG mutation scoped.
 
-  1. Use `torchvision.transforms.v2` which is generator-aware end-to-end.
-  2. Fall back to `torch.manual_seed(seed)` once at the start of each
-     epoch and document the deviation in §13 of ARCHITECTURE.md (same
-     pattern the eval-only torch backbones use).
-
-  Decision deferred to the implementation agent.
+  **§5 fix-wave deviation: per-(epoch, batch) augmentation seed.** The
+  v1.1 implementation initially derived the per-step augmentation seed
+  as `aug_gen.initial_seed() + n_batches` (Wave 4 review M1). Because
+  `n_batches` reset to 0 each epoch, batch position 0 in every epoch
+  saw identical augmentation parameters. The fix wave threads `epoch`
+  into the helper `_augmentation_seed(base_seed, epoch=..., batch_idx=...)`
+  which derives the per-step seed as
+  `base_seed + epoch * 100003 + batch_idx`. The 100003 prime stride
+  is large enough that any plausible `(n_epochs, batches_per_epoch)`
+  combination avoids collisions. Determinism for a fixed
+  `(seed, dataset, n_epochs)` triple is preserved.
 
 ---
 

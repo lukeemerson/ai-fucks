@@ -14,8 +14,13 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
+from io import BytesIO
 from pathlib import Path
 from typing import Literal
+
+import numpy as np
+from numpy.typing import NDArray
+from PIL import Image
 
 from harness.adapters.fakes.artifact_store import InMemoryFakeArtifactStore
 from harness.adapters.fakes.backbone import IdentityFakeBackbone
@@ -39,6 +44,10 @@ from harness.adapters.sklearn.lr_head import SklearnLogisticRegressionHead
 from harness.adapters.sklearn.metrics import BootstrapMetrics
 from harness.adapters.sklearn.splitter import IterativeStratifiedPatientSplitter
 from harness.adapters.sklearn.threshold import PrSweepShrinkageThreshold
+from harness.composition._finetune_pipeline import (
+    FineTuneRunnerBundle,
+    ImageDecoder,
+)
 from harness.composition._publication_pipeline import (
     DecodedImageCache,
     _DecodingBackbone,
@@ -52,6 +61,7 @@ from harness.domain.types import (
     ExperimentConfig,
     Sample,
     ThresholdConfig,
+    TrainingConfig,
 )
 from harness.ports.artifact_store import ArtifactStorePort
 from harness.ports.backbone import BackbonePort
@@ -65,8 +75,10 @@ from harness.ports.threshold import ThresholdPort
 
 __all__ = [
     "BackboneChoice",
+    "FineTuneBackboneChoice",
     "HeadChoice",
     "RunnerBundle",
+    "build_finetune_runner_v1",
     "build_publication_runner_v1",
     "build_v1_runner_sklearn",
     "build_v1_runner_with_fakes",
@@ -486,4 +498,199 @@ def build_publication_runner_v1(
         metrics=BootstrapMetrics(),
         store=FilesystemArtifactStore(root_dir=artifact_root),
         randomness=randomness,
+    )
+
+
+# ---------------------------------------------------------------------------
+# v1.1: Fine-tune wiring (FINE_TUNING_DESIGN.md §4.5)
+# ---------------------------------------------------------------------------
+
+
+# Discriminator for ``build_finetune_runner_v1(backbone=...)``. v1.1 ships
+# ImageNet-pretrained DenseNet121 and ResNet50 only (FINE_TUNING_DESIGN.md
+# §10 answer #6 -- TXRV NIH fine-tuning is deferred to v1.2 to avoid
+# fine-tuning on top of leaked weights).
+FineTuneBackboneChoice = Literal["densenet121", "resnet50"]
+
+
+def _make_default_training_config(
+    *,
+    backbone: FineTuneBackboneChoice,
+    n_labels: int,
+    n_epochs: int,
+    batch_size: int,
+    learning_rate: float,
+    augmentations: tuple[str, ...],
+    image_size: tuple[int, int],
+    checkpoint_dir: Path | None,
+) -> TrainingConfig:
+    """Default :class:`TrainingConfig` for the v1.1 fine-tune factory.
+
+    Per FINE_TUNING_DESIGN.md §10 answer #5 the default augmentations are
+    ``("hflip", "rotate10")`` (the CheXNet recipe). The factory accepts
+    a caller-supplied ``augmentations`` tuple to permit ablation override.
+    """
+    return TrainingConfig(
+        backbone_id=backbone,
+        n_labels=n_labels,
+        n_epochs=n_epochs,
+        batch_size=batch_size,
+        learning_rate=learning_rate,
+        weight_decay=1e-4,
+        optimizer="adamw",
+        lr_schedule="cosine",
+        warmup_epochs=min(1, n_epochs),
+        augmentations=augmentations,
+        image_size=image_size,
+        checkpoint_dir=checkpoint_dir,
+        early_stop_patience=None,
+        num_dataloader_workers=0,
+    )
+
+
+def _png_blob_decoder(image_size: tuple[int, int]) -> ImageDecoder:
+    """Build a decoder callable mapping ``(image_ref, blob) -> NDArray``.
+
+    Decodes raw PNG bytes via Pillow into a ``(H, W, 1) float32`` array
+    in ``[0, 1]`` -- the same shape :class:`NIHImageLoader.decode` produces
+    for the frozen-feature publication path. The ``image_ref`` is used
+    purely as a cache key inside :class:`_InMemoryTrainingDataset`; this
+    decoder re-decodes the supplied bytes per call.
+    """
+    h, w = image_size
+
+    def _decoder(_ref: str, blob: bytes) -> NDArray[np.float32]:
+        with Image.open(BytesIO(blob)) as img:
+            grayscale = img.convert("L")
+            resized = grayscale.resize((w, h), Image.Resampling.BILINEAR)
+            arr = np.asarray(resized, dtype=np.float32) / 255.0
+        result: NDArray[np.float32] = np.clip(arr, 0.0, 1.0).reshape(h, w, 1)
+        return result
+
+    return _decoder
+
+
+def build_finetune_runner_v1(
+    seed: int,
+    *,
+    nih_csv_path: Path,
+    nih_images_dir: Path,
+    artifact_root: Path,
+    n_samples: int | None = None,
+    strict_missing_images: bool = True,
+    backbone: FineTuneBackboneChoice = "densenet121",
+    n_epochs: int = 1,
+    batch_size: int = 32,
+    learning_rate: float = 1e-4,
+    augmentations: tuple[str, ...] = ("hflip", "rotate10"),
+    image_size: tuple[int, int] = (224, 224),
+    checkpoint_dir: Path | None = None,
+) -> FineTuneRunnerBundle:
+    """v1.1 fine-tune recipe (FINE_TUNING_DESIGN.md §4.5).
+
+    Parallel to :func:`build_publication_runner_v1` but wires the new
+    :class:`TorchFineTuneTrainer` adapter in place of backbone + head.
+    The trainer subsumes feature extraction and head fitting; downstream
+    calibrator/threshold/metrics chain is byte-identical to the
+    frozen-feature path.
+
+    Args:
+        seed: Master seed; sub-seeds for trainer and split are derived.
+        nih_csv_path: Absolute path to ``Data_Entry_2017_v2020.csv``.
+        nih_images_dir: Absolute path to the flat directory of NIH PNGs.
+        artifact_root: Filesystem root for the four v1 artifacts.
+        n_samples: Optional pilot truncation (same semantics as
+            :func:`build_publication_runner_v1`). When set, the in-memory
+            training dataset's 20000-row cap (FINE_TUNING_DESIGN.md §10
+            answer #3) means ``n_samples * (1 - val - test)`` must be
+            <= 20000; the factory does NOT enforce this -- it surfaces
+            via :class:`ConfigError` from
+            :class:`_InMemoryTrainingDataset` at runtime.
+        strict_missing_images: If True (default), raises
+            :class:`DataError` when a CSV row references a missing PNG.
+        backbone: ``"densenet121"`` (default) or ``"resnet50"``.
+        n_epochs: Default 1 -- matches the smoke gate per
+            FINE_TUNING_DESIGN.md §10 answer #1.
+        batch_size: Default 32 -- comfortable for MPS at 224x224.
+        learning_rate: Default 1e-4 -- standard AdamW fine-tune LR for
+            ImageNet-pretrained CNNs.
+        augmentations: Default ``("hflip", "rotate10")`` (CheXNet recipe).
+        image_size: Default ``(224, 224)`` -- matches the configured
+            backbones' expected input size.
+        checkpoint_dir: Optional checkpoint directory. ``None`` disables
+            checkpointing (training restarts every call).
+
+    Returns:
+        A :class:`FineTuneRunnerBundle` ready to be unpacked into
+        :func:`harness.composition.runner.run_finetune_experiment`.
+    """
+    # Local import: TorchFineTuneTrainer pulls torch + torchvision at import
+    # time; keeping the import inside the factory means the harness public
+    # surface stays usable on machines without the [experiment] extras.
+    from harness.adapters.torch.trainer import TorchFineTuneTrainer
+
+    randomness = SeededRandomness()
+    bootstrap_seed = randomness.child_seed(seed, "bootstrap")
+    nih_config = NIHDatasetConfig(
+        csv_path=nih_csv_path,
+        images_dir=nih_images_dir,
+        image_size=image_size,
+        cache_size=0,
+        disk_cache_dir=None,
+        strict_missing_images=strict_missing_images,
+    )
+    inner_dataset = NIHDataset(nih_config)
+    sized_dataset: NIHDataset | _SubsettedDataset
+    if n_samples is not None and n_samples > 0:
+        sized_dataset = _SubsettedDataset(inner_dataset, n_samples)
+    else:
+        sized_dataset = inner_dataset
+    n_labels = len(NIH14_LABELS)
+    training_cfg = _make_default_training_config(
+        backbone=backbone,
+        n_labels=n_labels,
+        n_epochs=n_epochs,
+        batch_size=batch_size,
+        learning_rate=learning_rate,
+        augmentations=augmentations,
+        image_size=image_size,
+        checkpoint_dir=checkpoint_dir,
+    )
+    config = ExperimentConfig(
+        experiment_name=f"v1.1-finetune-{backbone}",
+        dataset_name="nih-cxr14",
+        label_names=NIH14_LABELS,
+        val_fraction=0.2,
+        test_fraction=0.2,
+        seed=seed,
+        bootstrap=BootstrapConfig(
+            n_resamples=8, confidence=0.95, seed=bootstrap_seed
+        ),
+        threshold=ThresholdConfig(
+            method="pr_sweep", shrinkage=0.5, clamp_lo=0.05, clamp_hi=0.95
+        ),
+        backbone_id=f"torch.finetune.{backbone}.v1",
+        head_id="torch.finetune.linear.v1",
+        calibrator_id="sklearn-isotonic",
+        artifact_root=str(artifact_root),
+        notes=(
+            f"Fine-tune v1.1: NIH-14 + {backbone} (ImageNet init) + "
+            f"AdamW + cosine LR + augmentations={augmentations} @ seed={seed}. "
+            "Calibrator and threshold tuner are co-fit on the same val fold "
+            "(see ARCHITECTURE.md §13.1)."
+        ),
+        training=training_cfg,
+    )
+    decoder = _png_blob_decoder(image_size)
+    return FineTuneRunnerBundle(
+        config=config,
+        dataset=sized_dataset,
+        splitter=IterativeStratifiedPatientSplitter(),
+        trainer=TorchFineTuneTrainer(),
+        calibrator=PerClassIsotonicCalibrator(),
+        thresholds=PrSweepShrinkageThreshold(),
+        metrics=BootstrapMetrics(),
+        store=FilesystemArtifactStore(root_dir=artifact_root),
+        randomness=randomness,
+        decoder=decoder,
     )
